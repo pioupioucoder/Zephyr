@@ -292,74 +292,79 @@ export function buildIllusionWorld(scene, camera, canvas) {
     const switchMeshes = [];
 
     lampConfigs.forEach((cfg) => {
-        const group = new THREE.Group();
-        group.position.copy(cfg.position);
+    const group = new THREE.Group();
+    group.position.copy(cfg.position);
 
-        const headMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.8, roughness: 0.2 });
-        const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), headMat);
-        head.position.y = 0;
-        head.rotation.x = Math.PI;
-        group.add(head);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.8, roughness: 0.2 });
+    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), headMat);
+    head.position.y = 0;
+    head.rotation.x = Math.PI;
+    group.add(head);
 
-        const bulbMat = new THREE.MeshStandardMaterial({
-            color: cfg.color,
-            emissive: cfg.color,
-            emissiveIntensity: 0.8,
-            transparent: true,
-            opacity: 0.9
-        });
-        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), bulbMat);
-        bulb.position.y = -0.15;
-        group.add(bulb);
-
-        const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
-        light.position.copy(cfg.position);
-        light.position.y -= 0.15;
-        scene.add(light);
-
-        const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 4), cableMat);
-        cable.position.y = 0.4;
-        group.add(cable);
-
-        scene.add(group);
-
-        lampStates[cfg.id] = true;
-        lampMeshes[cfg.id] = {
-            light: light,
-            bulbMat: bulbMat,
-            originalIntensity: cfg.intensity,
-            color: cfg.color
-        };
-
-        const switchGroup = new THREE.Group();
-        switchGroup.position.copy(cfg.switchPos);
-
-        const plateMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.2 });
-        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.04), plateMat);
-        plate.position.set(0, 0, 0);
-        switchGroup.add(plate);
-
-        const btnMat = new THREE.MeshStandardMaterial({
-            color: 0x44aa44,
-            emissive: 0x000000,
-            emissiveIntensity: 0,
-            roughness: 0.4
-        });
-        const btn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), btnMat);
-        btn.position.set(0, 0, 0.03);
-        btn.userData.isSwitch = true;
-        btn.userData.lampId = cfg.id;
-        btn.userData.defaultColor = 0x44aa44;
-        btn.userData.hoverColor = 0x88ff88;
-        switchGroup.add(btn);
-
-        switchGroup.rotation.y = cfg.switchAngle;
-        scene.add(switchGroup);
-
-        switchMeshes.push(btn);
+    const bulbMat = new THREE.MeshStandardMaterial({
+        color: cfg.color,
+        emissive: cfg.color,
+        emissiveIntensity: 0.8,
+        transparent: true,
+        opacity: 0.9
     });
+    // Éteindre l'ampoule par défaut
+    bulbMat.color.setHex(0x444444);
+    bulbMat.emissive.setHex(0x444444);
+    bulbMat.emissiveIntensity = 0;
 
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), bulbMat);
+    bulb.position.y = -0.15;
+    group.add(bulb);
+
+    const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
+    light.position.copy(cfg.position);
+    light.position.y -= 0.15;
+    light.intensity = 0;   // éteinte par défaut
+    scene.add(light);
+
+    const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 4), cableMat);
+    cable.position.y = 0.4;
+    group.add(cable);
+
+    scene.add(group);
+
+    lampStates[cfg.id] = false;   // initialisé à false
+    lampMeshes[cfg.id] = {
+        light: light,
+        bulbMat: bulbMat,
+        originalIntensity: cfg.intensity,
+        color: cfg.color
+    };
+
+    const switchGroup = new THREE.Group();
+    switchGroup.position.copy(cfg.switchPos);
+
+    const plateMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.2 });
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.04), plateMat);
+    plate.position.set(0, 0, 0);
+    switchGroup.add(plate);
+
+    const btnMat = new THREE.MeshStandardMaterial({
+        color: 0xaa4444,   // rouge pour éteint
+        emissive: 0x000000,
+        emissiveIntensity: 0,
+        roughness: 0.4
+    });
+    const btn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), btnMat);
+    btn.position.set(0, 0, 0.03);
+    btn.userData.isSwitch = true;
+    btn.userData.lampId = cfg.id;
+    btn.userData.defaultColor = 0xaa4444;   // initialisé à rouge
+    btn.userData.hoverColor = 0x88ff88;
+    switchGroup.add(btn);
+
+    switchGroup.rotation.y = cfg.switchAngle;
+    scene.add(switchGroup);
+
+    switchMeshes.push(btn);
+});
     function setupSwitchInteractions() {
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
