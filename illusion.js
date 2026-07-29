@@ -1057,17 +1057,21 @@ function makePictureFrame(z, facingRight, imageIndex) {
 function makePictureFrameInner(x, imageIndex) {
     createFrame(x, 1.7, 0, 0, imageIndex);
 }
+// Fonction pour le mur avant (celui avec la fenêtre)
+function makePictureFrameFront(x, imageIndex) {
+    createFrame(x, 1.7, HALF_D, Math.PI, imageIndex);
+}
 
 // Configuration des cadres :
 //  - 2 sur le mur intérieur (Z=0) à X = -3 et X = 3
 //  - 2 sur le mur gauche (Z=4 et Z=6)
 //  - 2 sur le mur droit (Z=4 et Z=6)
 makePictureFrameInner(-3, 1);
-makePictureFrameInner(3, 2);
-makePictureFrame(4.0, false, 3);   // gauche à Z=4
-makePictureFrame(6.0, false, 4);   // gauche à Z=6
-makePictureFrame(4.0, true, 5);    // droite à Z=4
-makePictureFrame(6.0, true, 6);    // droite à Z=6
+makePictureFrameInner(6, 2);
+makePictureFrame(4.0, false, 5);   // gauche à Z=4
+makePictureFrame(4.0, true, 6);    // droite à Z=4
+makePictureFrameFront(-4, 4);      // mur avant gauche
+makePictureFrameFront(4, 3);       // mur avant droite
     // ─── TÉLÉVISION ──────────────────────────────────────────────
     function getVideoPath() {
         const hostname = window.location.hostname;
