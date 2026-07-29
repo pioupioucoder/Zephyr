@@ -1,29 +1,26 @@
-// illusion.js – version complète et corrigée
+// illusion.js – version finale, une seule pièce, mur intérieur avec collision
 import * as THREE from 'three';
 
 export function buildIllusionWorld(scene, camera, canvas) {
     // ─── LUMIÈRES ──────────────────────────────────────────────────
-// ─── LUMIÈRES ──────────────────────────────────────────────────
-const ambient = new THREE.AmbientLight(0x887868, 0.15); // très faible
-scene.add(ambient);
+    const ambient = new THREE.AmbientLight(0x887868, 0.15);
+    scene.add(ambient);
 
-// Lumière douce venant du haut/derrière
-const hemi = new THREE.HemisphereLight(0x4466aa, 0x1a1a2a, 0.15);
-scene.add(hemi);
+    const hemi = new THREE.HemisphereLight(0x4466aa, 0x1a1a2a, 0.15);
+    scene.add(hemi);
 
-// Soleil très faible, orienté pour éclairer le fond (Z négatif)
-const sun = new THREE.DirectionalLight(0xffe8c0, 0.2);
-sun.position.set(0, 20, -20); // derrière la caméra
-sun.castShadow = true;
-sun.shadow.mapSize.width = 1024;
-sun.shadow.mapSize.height = 1024;
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 50;
-scene.add(sun);
+    const sun = new THREE.DirectionalLight(0xffe8c0, 0.2);
+    sun.position.set(0, 20, -20);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 1024;
+    sun.shadow.mapSize.height = 1024;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 50;
+    scene.add(sun);
 
-const fill = new THREE.DirectionalLight(0x8899bb, 0.05);
-fill.position.set(-10, 5, 10);
-scene.add(fill);
+    const fill = new THREE.DirectionalLight(0x8899bb, 0.05);
+    fill.position.set(-10, 5, 10);
+    scene.add(fill);
 
     // ─── TEXTURES ────────────────────────────────────────────────────
     function makeTex(fn, size) {
@@ -89,37 +86,6 @@ scene.add(fill);
     }, 120);
     floorTex.repeat.set(8, 8);
 
-    const floorTexCorridor = makeTex(function(ctx, s) {
-        ctx.fillStyle = '#2a0606';
-        ctx.fillRect(0, 0, s, s);
-        const cell = s / 4;
-        for (let r = 0; r < 4; r++) {
-            for (let col = 0; col < 4; col++) {
-                const dark = (r + col) % 2 === 0;
-                ctx.fillStyle = dark ? '#7a0f10' : '#160303';
-                ctx.save();
-                ctx.translate(col * cell + cell / 2, r * cell + cell / 2);
-                ctx.rotate(Math.PI / 4);
-                const d = cell * 0.62;
-                ctx.fillRect(-d / 2, -d / 2, d, d);
-                ctx.restore();
-            }
-        }
-        ctx.strokeStyle = 'rgba(180,120,40,0.25)';
-        ctx.lineWidth = 1.2;
-        for (let i = 0; i <= s; i += cell) {
-            ctx.beginPath();
-            ctx.moveTo(i, 0);
-            ctx.lineTo(i, s);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(0, i);
-            ctx.lineTo(s, i);
-            ctx.stroke();
-        }
-    }, 128);
-    floorTexCorridor.repeat.set(6, 6);
-
     const woodTex = makeTex(function(ctx, s) {
         ctx.fillStyle = '#5a3a20';
         ctx.fillRect(0, 0, s, s);
@@ -131,8 +97,8 @@ scene.add(fill);
     woodTex.repeat.set(4, 4);
 
     // ─── MATÉRIAUX ──────────────────────────────────────────────────
-    const mWall = new THREE.MeshLambertMaterial({ map: stoneTex, color: 0xddd0b8 }); // clair, comme le mur du milieu
-// Supprimer ou commenter la ligne avec mWallCorridorconst mFloor = new THREE.MeshLambertMaterial({ map: floorTex, color: 0x6a5848 });
+    const mWall = new THREE.MeshLambertMaterial({ map: stoneTex, color: 0xddd0b8 });
+    const mFloor = new THREE.MeshLambertMaterial({ map: floorTex, color: 0x6a5848 });
     const mWood = new THREE.MeshLambertMaterial({ map: woodTex, color: 0x7a5a38 });
     const mGlass = new THREE.MeshLambertMaterial({ color: 0x88bbdd, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
     const mCeil = new THREE.MeshLambertMaterial({ color: 0xddd0c0 });
@@ -179,138 +145,28 @@ scene.add(fill);
     const WALL_H = 3.6;
     const ROOM_W = 16;
     const ROOM_D = 16;
+    const HALF_D = ROOM_D / 2;   // profondeur de la nouvelle pièce (8)
 
-    // ─── SOLS ──────────────────────────────────────────────────────
-    const floorMatOrig = new THREE.MeshLambertMaterial({ map: floorTex, color: 0x6a5848 });
-    const floorMatDamier = new THREE.MeshLambertMaterial({ map: floorTexCorridor, color: 0x8a4a4a });
+    // ─── SOL (unique, texture principale) ──────────────────────
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROOM_W, HALF_D),
+        mFloor
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, -0.01, HALF_D / 2);
+    floor.receiveShadow = true;
+    scene.add(floor);
 
-    const halfDepth = ROOM_D / 2 + 0.1;
-    const halfW = ROOM_W / 2 + 0.1;
+    // ─── MURS EXTÉRIEURS (réduits à la moitié avant) ──────────
+    // Mur arrière (intérieur) – solide, sans porte
+    plane(ROOM_W, WALL_H, mWall, 0, WALL_H / 2, 0, 0, 0);
 
-    const floorLeft = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W + 0.2, halfDepth), floorMatDamier);
-    floorLeft.rotation.x = -Math.PI / 2;
-    floorLeft.position.set(0, -0.01, -halfDepth / 2);
-    floorLeft.receiveShadow = true;
-    scene.add(floorLeft);
-
-    const floorRight = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W + 0.2, halfDepth), floorMatOrig);
-    floorRight.rotation.x = -Math.PI / 2;
-    floorRight.position.set(0, -0.01, halfDepth / 2);
-    floorRight.receiveShadow = true;
-    scene.add(floorRight);
-
-    // ─── MURS EXTÉRIEURS ──────────────────────────────────────────
-   // Tous les murs extérieurs sont clairs (comme le mur du milieu)
-plane(ROOM_W, WALL_H, mWall, 0, WALL_H / 2, -ROOM_D / 2, 0, 0);
-plane(ROOM_W, WALL_H, mWall, 0, WALL_H / 2, ROOM_D / 2, 0, 0);
-plane(ROOM_D, WALL_H, mWall, -ROOM_W / 2, WALL_H / 2, 0, 0, Math.PI / 2);
-plane(ROOM_D, WALL_H, mWall, ROOM_W / 2, WALL_H / 2, 0, 0, -Math.PI / 2);
-    // ─── MUR CENTRAL – PORTE INTÉRIEURE ──────────────────────────
-    (function() {
-        const doorW = 1.2, doorH = 2.2;
-        const doorZ = 0, doorX = 0;
-        const wallThick = 0.3;
-      const wallMat = mWall; // on utilise le même matériau clair
-        const leftW = -doorW / 2 - (-ROOM_W / 2);
-        if (leftW > 0.01) {
-            const leftBlock = new THREE.Mesh(new THREE.BoxGeometry(leftW, WALL_H, wallThick), wallMat);
-            leftBlock.position.set((-ROOM_W / 2 + (-doorW / 2)) / 2, WALL_H / 2, doorZ);
-            leftBlock.castShadow = true; leftBlock.receiveShadow = true;
-            scene.add(leftBlock);
-        }
-        const rightW = ROOM_W / 2 - doorW / 2;
-        if (rightW > 0.01) {
-            const rightBlock = new THREE.Mesh(new THREE.BoxGeometry(rightW, WALL_H, wallThick), wallMat);
-            rightBlock.position.set((doorW / 2 + ROOM_W / 2) / 2, WALL_H / 2, doorZ);
-            rightBlock.castShadow = true; rightBlock.receiveShadow = true;
-            scene.add(rightBlock);
-        }
-        const topH = WALL_H - doorH;
-        if (topH > 0.01) {
-            const topBlock = new THREE.Mesh(new THREE.BoxGeometry(doorW * 1.6, topH, wallThick), wallMat);
-            topBlock.position.set(doorX, (doorH + WALL_H) / 2, doorZ);
-            topBlock.castShadow = true; topBlock.receiveShadow = true;
-            scene.add(topBlock);
-        }
-
-        const frameMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.1, roughness: 0.6, side: THREE.DoubleSide });
-        const fw = 0.04;
-        const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(fw, doorH, 0.08), frameMat);
-        leftFrame.position.set(-doorW / 2 - 0.02, doorH / 2, doorZ); scene.add(leftFrame);
-        const rightFrame = new THREE.Mesh(new THREE.BoxGeometry(fw, doorH, 0.08), frameMat);
-        rightFrame.position.set(doorW / 2 + 0.02, doorH / 2, doorZ); scene.add(rightFrame);
-        const topFrame = new THREE.Mesh(new THREE.BoxGeometry(doorW + 0.08, 0.04, 0.08), frameMat);
-        topFrame.position.set(doorX, doorH + 0.02, doorZ); scene.add(topFrame);
-        const botFrame = new THREE.Mesh(new THREE.BoxGeometry(doorW + 0.08, 0.03, 0.08), frameMat);
-        botFrame.position.set(doorX, 0.015, doorZ); scene.add(botFrame);
-
-        const doorMat = new THREE.MeshStandardMaterial({ color: 0xf0ece8, roughness: 0.5, metalness: 0.05, side: THREE.DoubleSide });
-        const doorMatHi = new THREE.MeshStandardMaterial({ color: 0xf8f4f0, emissive: 0x443322, emissiveIntensity: 0.2, side: THREE.DoubleSide });
-        const glassMatDoor = new THREE.MeshPhysicalMaterial({ color: 0xddddff, transparent: true, opacity: 0.3, roughness: 0.02, metalness: 0.0, side: THREE.DoubleSide });
-
-        const pivotMid = new THREE.Group();
-        pivotMid.position.set(-doorW / 2, doorH / 2, doorZ);
-        scene.add(pivotMid);
-
-        const doorGroupMid = new THREE.Group();
-        doorGroupMid.position.set(doorW / 2, 0, 0);
-
-        const doorMeshMid = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, 0.035), doorMat);
-        doorMeshMid.position.set(0, 0, 0);
-        doorMeshMid.castShadow = true; doorMeshMid.receiveShadow = true;
-        doorGroupMid.add(doorMeshMid);
-
-        const glass = new THREE.Mesh(new THREE.PlaneGeometry(doorW * 0.7, doorH * 0.7), glassMatDoor);
-        glass.position.set(0, 0, 0.02);
-        doorGroupMid.add(glass);
-
-        const hMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.2 });
-        const hFwd = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.14, 8), hMat);
-        hFwd.rotation.z = Math.PI / 2;
-        hFwd.position.set(0.32, -0.1, 0.04);
-        doorGroupMid.add(hFwd);
-        const hBaseFwd = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), hMat);
-        hBaseFwd.position.set(0.38, -0.1, 0.04);
-        doorGroupMid.add(hBaseFwd);
-        const hBwd = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.14, 8), hMat);
-        hBwd.rotation.z = Math.PI / 2;
-        hBwd.position.set(0.32, -0.1, -0.04);
-        doorGroupMid.add(hBwd);
-        const hBaseBwd = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), hMat);
-        hBaseBwd.position.set(0.38, -0.1, -0.04);
-        doorGroupMid.add(hBaseBwd);
-
-        const clickAreaMid = new THREE.Mesh(
-            new THREE.PlaneGeometry(doorW * 1.2, doorH * 1.2),
-            new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide })
-        );
-        clickAreaMid.position.set(0, 0, 0.02);
-        clickAreaMid.userData.isClickArea = true;
-        doorGroupMid.add(clickAreaMid);
-
-        pivotMid.add(doorGroupMid);
-
-        window._midDoorGroup = doorGroupMid;
-        window._midDoorPivot = pivotMid;
-        window._midDoorMesh = doorMeshMid;
-        window._midDoorMat = doorMat;
-        window._midDoorHighlightMat = doorMatHi;
-        window._midDoorOpen = false;
-        window._midDoorAnimating = false;
-        window._midDoorCollision = { halfW: doorW / 2, halfH: doorH / 2, halfD: 0.035 / 2 + 0.05 };
-        window._midWallLimits = {
-            minX: -ROOM_W / 2, maxX: ROOM_W / 2,
-            doorMinX: -doorW / 2, doorMaxX: doorW / 2,
-            doorZ: doorZ, thickness: wallThick
-        };
-    })();
-
-    // ─── MUR AVANT (fenêtre + porte extérieure) ──────────────────
+    // Mur avant (avec fenêtre et porte) – on conserve l'ancien code en adaptant la position z
     (function() {
         const fw = 2.8, fh = 2.0;
         const doorW = 1.2, doorH = 2.2;
         const doorX = ROOM_W / 2 - 1.8;
-        const fz = ROOM_D / 2 + 0.01;
+        const fz = HALF_D + 0.01;
         const yc = WALL_H / 2;
 
         box(-fw / 2 - (-ROOM_W / 2), WALL_H, 0.05, mWall, ((-ROOM_W / 2) + (-fw / 2)) / 2, WALL_H / 2, fz);
@@ -347,7 +203,7 @@ plane(ROOM_D, WALL_H, mWall, ROOM_W / 2, WALL_H / 2, 0, 0, -Math.PI / 2);
         box(fw, 0.04, 0.05, frameMat, 0, yc, fz + 0.02);
         box(0.04, fh, 0.05, frameMat, 0, yc, fz + 0.02);
 
-        const doorZ = ROOM_D / 2 + 0.02;
+        const doorZ = HALF_D + 0.02;
         const frameMatDoor = mDoorFrame;
         box(0.08, doorH, 0.08, frameMatDoor, doorX - doorW / 2 - 0.04, doorH / 2 + 0.025, doorZ);
         box(0.08, doorH, 0.08, frameMatDoor, doorX + doorW / 2 + 0.04, doorH / 2 + 0.025, doorZ);
@@ -387,191 +243,188 @@ plane(ROOM_D, WALL_H, mWall, ROOM_W / 2, WALL_H / 2, 0, 0, -Math.PI / 2);
         window._doorAnimating = false;
     })();
 
-    // ─── PLAFOND ──────────────────────────────────────────────────
-    plane(ROOM_W, ROOM_D, mCeil, 0, WALL_H, 0, Math.PI / 2);
-// ─── PLINTHES EN BOIS ROUGE ──────────────────────────────────
-const mBaseboard = new THREE.MeshStandardMaterial({ color: 0x6a1a1a, roughness: 0.7 });
-//const mBaseboard = new THREE.MeshLambertMaterial({ color: 0x6a1a1a, roughness: 0.7 });
-const baseH = 0.12;
-const baseDepth = 0.03;
-box(ROOM_W, baseH, baseDepth, mBaseboard, 0, baseH / 2, -ROOM_D / 2 + 0.02);
-box(ROOM_W, baseH, baseDepth, mBaseboard, 0, baseH / 2, ROOM_D / 2 - 0.02);
-box(baseDepth, baseH, ROOM_D, mBaseboard, -ROOM_W / 2 + 0.02, baseH / 2, 0);
-box(baseDepth, baseH, ROOM_D, mBaseboard, ROOM_W / 2 - 0.02, baseH / 2, 0);
-// ─── LAMPES MODERNES (2 zones) ──────────────────────────────────────
+    // Murs latéraux (gauche et droite) – de z=0 à z=HALF_D
+    plane(HALF_D, WALL_H, mWall, -ROOM_W / 2, WALL_H / 2, HALF_D / 2, 0, Math.PI / 2);
+    plane(HALF_D, WALL_H, mWall, ROOM_W / 2, WALL_H / 2, HALF_D / 2, 0, -Math.PI / 2);
 
-// Configuration des lampes
-const lampConfigs = [
-    {
-        id: 'left',
-        position: new THREE.Vector3(0, 2.8, -4),
-        color: 0xffeedd,
-        intensity: 2.0,
-        range: 12,
-        switchPos: new THREE.Vector3(-7.85, 1.0, -4),
-        switchAngle: Math.PI / 2
-    },
-    {
-        id: 'right',
-        position: new THREE.Vector3(0, 2.8, 4),
-        color: 0xffeedd,
-        intensity: 2.0,
-        range: 12,
-        switchPos: new THREE.Vector3(7.85, 1.0, 4),
-        switchAngle: -Math.PI / 2
+    // ─── PLAFOND (réduit à la moitié avant) ─────────────────────
+    plane(ROOM_W, HALF_D, mCeil, 0, WALL_H, HALF_D / 2, Math.PI / 2);
+
+    // ─── PLINTHES EN BOIS ROUGE ────────────────────────────────
+    const mBaseboard = new THREE.MeshStandardMaterial({ color: 0x6a1a1a, roughness: 0.7 });
+    const baseH = 0.12;
+    const baseDepth = 0.03;
+    // Mur arrière (z=0)
+    box(ROOM_W, baseH, baseDepth, mBaseboard, 0, baseH / 2, 0.02);
+    // Mur avant (z=HALF_D)
+    box(ROOM_W, baseH, baseDepth, mBaseboard, 0, baseH / 2, HALF_D - 0.02);
+    // Mur gauche
+    box(baseDepth, baseH, HALF_D, mBaseboard, -ROOM_W / 2 + 0.02, baseH / 2, HALF_D / 2);
+    // Mur droit
+    box(baseDepth, baseH, HALF_D, mBaseboard, ROOM_W / 2 - 0.02, baseH / 2, HALF_D / 2);
+
+    // ─── COLLISION POUR MUR INTÉRIEUR (Z=0) ────────────────────
+    const wallCollider = new THREE.Mesh(
+        new THREE.BoxGeometry(ROOM_W, WALL_H, 0.05),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide })
+    );
+    wallCollider.position.set(0, WALL_H / 2, 0);
+    wallCollider.userData.isWall = true;
+    wallCollider.userData.collisionType = 'wall';
+    wallCollider.name = 'wallCollider';
+    scene.add(wallCollider);
+
+    // ─── LAMPE MODERNE (seulement celle de la nouvelle pièce) ──
+    const lampConfigs = [
+        {
+            id: 'right',
+            position: new THREE.Vector3(0, 2.8, 4),
+            color: 0xffeedd,
+            intensity: 2.0,
+            range: 12,
+            switchPos: new THREE.Vector3(7.85, 1.0, 4),
+            switchAngle: -Math.PI / 2
+        }
+    ];
+
+    const lampStates = {};
+    const lampMeshes = {};
+    const switchMeshes = [];
+
+    lampConfigs.forEach((cfg) => {
+        const group = new THREE.Group();
+        group.position.copy(cfg.position);
+
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.8, roughness: 0.2 });
+        const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), headMat);
+        head.position.y = 0;
+        head.rotation.x = Math.PI;
+        group.add(head);
+
+        const bulbMat = new THREE.MeshStandardMaterial({
+            color: cfg.color,
+            emissive: cfg.color,
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.9
+        });
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), bulbMat);
+        bulb.position.y = -0.15;
+        group.add(bulb);
+
+        const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
+        light.position.copy(cfg.position);
+        light.position.y -= 0.15;
+        scene.add(light);
+
+        const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 4), cableMat);
+        cable.position.y = 0.4;
+        group.add(cable);
+
+        scene.add(group);
+
+        lampStates[cfg.id] = true;
+        lampMeshes[cfg.id] = {
+            light: light,
+            bulbMat: bulbMat,
+            originalIntensity: cfg.intensity,
+            color: cfg.color
+        };
+
+        const switchGroup = new THREE.Group();
+        switchGroup.position.copy(cfg.switchPos);
+
+        const plateMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.2 });
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.04), plateMat);
+        plate.position.set(0, 0, 0);
+        switchGroup.add(plate);
+
+        const btnMat = new THREE.MeshStandardMaterial({
+            color: 0x44aa44,
+            emissive: 0x000000,
+            emissiveIntensity: 0,
+            roughness: 0.4
+        });
+        const btn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), btnMat);
+        btn.position.set(0, 0, 0.03);
+        btn.userData.isSwitch = true;
+        btn.userData.lampId = cfg.id;
+        btn.userData.defaultColor = 0x44aa44;
+        btn.userData.hoverColor = 0x88ff88;
+        switchGroup.add(btn);
+
+        switchGroup.rotation.y = cfg.switchAngle;
+        scene.add(switchGroup);
+
+        switchMeshes.push(btn);
+    });
+
+    function setupSwitchInteractions() {
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let hoveredSwitch = null;
+
+        canvas.addEventListener('mousemove', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(switchMeshes);
+            let newHover = null;
+            if (intersects.length > 0) {
+                newHover = intersects[0].object;
+                canvas.style.cursor = 'pointer';
+            } else {
+                canvas.style.cursor = 'default';
+            }
+
+            if (newHover !== hoveredSwitch) {
+                if (hoveredSwitch) {
+                    const isOn = lampStates[hoveredSwitch.userData.lampId];
+                    const defaultColor = isOn ? 0x44aa44 : 0xaa4444;
+                    hoveredSwitch.material.color.setHex(defaultColor);
+                    hoveredSwitch.material.emissive.setHex(0x000000);
+                    hoveredSwitch.material.emissiveIntensity = 0;
+                }
+                if (newHover) {
+                    newHover.material.color.setHex(0x88ff88);
+                    newHover.material.emissive.setHex(0xffff88);
+                    newHover.material.emissiveIntensity = 0.3;
+                }
+                hoveredSwitch = newHover;
+            }
+        });
+
+        canvas.addEventListener('click', (event) => {
+            if (!hoveredSwitch) return;
+            const lampId = hoveredSwitch.userData.lampId;
+            const isCurrentlyOn = lampStates[lampId];
+            lampStates[lampId] = !isCurrentlyOn;
+            const data = lampMeshes[lampId];
+
+            if (lampStates[lampId]) {
+                data.light.intensity = data.originalIntensity;
+                data.bulbMat.color.setHex(data.color);
+                data.bulbMat.emissive.setHex(data.color);
+                data.bulbMat.emissiveIntensity = 0.8;
+                hoveredSwitch.material.color.setHex(0x44aa44);
+                hoveredSwitch.userData.defaultColor = 0x44aa44;
+            } else {
+                data.light.intensity = 0;
+                data.bulbMat.color.setHex(0x444444);
+                data.bulbMat.emissive.setHex(0x444444);
+                data.bulbMat.emissiveIntensity = 0;
+                hoveredSwitch.material.color.setHex(0xaa4444);
+                hoveredSwitch.userData.defaultColor = 0xaa4444;
+            }
+        });
     }
-];
 
-const lampStates = {}; // { id: true/false }
-const lampMeshes = {}; // { id: { light, bulbMat, originalIntensity, color } }
-const switchMeshes = [];
+    setupSwitchInteractions();
 
-lampConfigs.forEach((cfg) => {
-    const group = new THREE.Group();
-    group.position.copy(cfg.position);
-
-    // Ampoule
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.8, roughness: 0.2 });
-    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), headMat);
-    head.position.y = 0;
-    head.rotation.x = Math.PI;
-    group.add(head);
-
-    const bulbMat = new THREE.MeshStandardMaterial({
-        color: cfg.color,
-        emissive: cfg.color,
-        emissiveIntensity: 0.8,
-        transparent: true,
-        opacity: 0.9
-    });
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), bulbMat);
-    bulb.position.y = -0.15;
-    group.add(bulb);
-
-    // Lumière
-    const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
-    light.position.copy(cfg.position);
-    light.position.y -= 0.15;
-    scene.add(light);
-
-    // Câble
-    const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 4), cableMat);
-    cable.position.y = 0.4;
-    group.add(cable);
-
-    scene.add(group);
-
-    // Stocker les données
-    lampStates[cfg.id] = true;
-    lampMeshes[cfg.id] = {
-        light: light,
-        bulbMat: bulbMat,
-        originalIntensity: cfg.intensity,
-        color: cfg.color
-    };
-
-    // ─── INTERRUPTEUR ──
-    const switchGroup = new THREE.Group();
-    switchGroup.position.copy(cfg.switchPos);
-
-    const plateMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.2 });
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.04), plateMat);
-    plate.position.set(0, 0, 0);
-    switchGroup.add(plate);
-
-    const btnMat = new THREE.MeshStandardMaterial({
-        color: 0x44aa44,
-        emissive: 0x000000,
-        emissiveIntensity: 0,
-        roughness: 0.4
-    });
-    const btn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), btnMat);
-    btn.position.set(0, 0, 0.03);
-    btn.userData.isSwitch = true;
-    btn.userData.lampId = cfg.id;
-    btn.userData.defaultColor = 0x44aa44;
-    btn.userData.hoverColor = 0x88ff88;
-    switchGroup.add(btn);
-
-    switchGroup.rotation.y = cfg.switchAngle;
-    scene.add(switchGroup);
-
-    switchMeshes.push(btn);
-});
-
-// ─── INTERACTIONS POUR LES INTERRUPTEURS ──────────────────────────
-function setupSwitchInteractions() {
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    let hoveredSwitch = null;
-
-    canvas.addEventListener('mousemove', (event) => {
-        const rect = canvas.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(mouse, camera);
-
-        const intersects = raycaster.intersectObjects(switchMeshes);
-        let newHover = null;
-        if (intersects.length > 0) {
-            newHover = intersects[0].object;
-            canvas.style.cursor = 'pointer';
-        } else {
-            canvas.style.cursor = 'default';
-        }
-
-        if (newHover !== hoveredSwitch) {
-            // Restaurer l'ancien
-            if (hoveredSwitch) {
-                const isOn = lampStates[hoveredSwitch.userData.lampId];
-                const defaultColor = isOn ? 0x44aa44 : 0xaa4444;
-                hoveredSwitch.material.color.setHex(defaultColor);
-                hoveredSwitch.material.emissive.setHex(0x000000);
-                hoveredSwitch.material.emissiveIntensity = 0;
-            }
-            // Surbrillance du nouveau
-            if (newHover) {
-                newHover.material.color.setHex(0x88ff88);
-                newHover.material.emissive.setHex(0xffff88);
-                newHover.material.emissiveIntensity = 0.3;
-            }
-            hoveredSwitch = newHover;
-        }
-    });
-
-    canvas.addEventListener('click', (event) => {
-        if (!hoveredSwitch) return;
-        const lampId = hoveredSwitch.userData.lampId;
-        const isCurrentlyOn = lampStates[lampId];
-        // Inverser l'état
-        lampStates[lampId] = !isCurrentlyOn;
-        const data = lampMeshes[lampId];
-
-        if (lampStates[lampId]) {
-            // Rallumer
-            data.light.intensity = data.originalIntensity;
-            data.bulbMat.color.setHex(data.color);
-            data.bulbMat.emissive.setHex(data.color);
-            data.bulbMat.emissiveIntensity = 0.8;
-            // Couleur bouton : vert
-            hoveredSwitch.material.color.setHex(0x44aa44);
-            hoveredSwitch.userData.defaultColor = 0x44aa44;
-        } else {
-            // Éteindre
-            data.light.intensity = 0;
-            data.bulbMat.color.setHex(0x444444);
-            data.bulbMat.emissive.setHex(0x444444);
-            data.bulbMat.emissiveIntensity = 0;
-            // Couleur bouton : rouge
-            hoveredSwitch.material.color.setHex(0xaa4444);
-            hoveredSwitch.userData.defaultColor = 0xaa4444;
-        }
-    });
-}
-
-setupSwitchInteractions();
-    // ─── LIT ──────────────────────────────────────────────────────
+    // ─── LIT (déplacé en avant) ──────────────────────────────────
     function createBed() {
         const group = new THREE.Group();
         const E = 1.1, W = 0;
@@ -675,13 +528,13 @@ setupSwitchInteractions();
         edge.position.set(0, 0.64, 0.7 + E);
         group.add(edge);
 
-        group.position.set(-7, 0, -7.2);
+        group.position.set(-7, 0, 0.8);
         group.rotation.y = Math.PI / 2;
         scene.add(group);
     }
     createBed();
 
-    // ─── LIVRE ──────────────────────────────────────────────────────
+    // ─── LIVRE (inchangé) ────────────────────────────────────────
     function getJsonUrl() {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             return '/projet/Illusion/livres/mon_livre.json';
@@ -891,13 +744,12 @@ setupSwitchInteractions();
 
     let monLivre = null;
 
-        function ajouterLivreSurBibliotheque() {
+    function ajouterLivreSurBibliotheque() {
         if (monLivre) return;
         let bibliotheque = window._bibliotheque || null;
         let hauteurEtagere = 0.95;
 
         if (!bibliotheque) {
-            // Si la référence globale n'existe pas, on cherche dans la scène
             scene.children.forEach((child) => {
                 if (child.userData && Array.isArray(child.userData.etageres)) {
                     bibliotheque = child;
@@ -910,7 +762,6 @@ setupSwitchInteractions();
                 }
             });
         } else {
-            // Si on a la bibliothèque via window._bibliotheque, on utilise ses étagères
             const etageres = bibliotheque.userData.etageres;
             if (etageres && etageres.length > 2) {
                 hauteurEtagere = etageres[2] + 0.02;
@@ -1018,7 +869,7 @@ setupSwitchInteractions();
 
     setTimeout(ajouterLivreSurBibliotheque, 400);
 
-    // ─── BIBLIOTHÈQUE ──────────────────────────────────────────────
+    // ─── BIBLIOTHÈQUE (déplacée en avant) ──────────────────────
     function createBookshelf() {
         const group = new THREE.Group();
         window._bibliotheque = group;
@@ -1072,143 +923,152 @@ setupSwitchInteractions();
         group.add(base);
 
         group.userData.etageres = etageres;
-        group.position.set(7.7, 0, -5);
+        group.position.set(7.7, 0, 2);
         group.rotation.y = Math.PI / 2;
         scene.add(group);
     }
     createBookshelf();
 
     // ─── CADRES AVEC IMAGES ──────────────────────────────────────
-    function generateFallbackTexture() {
-        const canvas2 = document.createElement('canvas');
-        canvas2.width = 256;
-        canvas2.height = 256;
-        const ctx = canvas2.getContext('2d');
-        const grad = ctx.createLinearGradient(0, 0, 256, 256);
-        grad.addColorStop(0, '#8a7a5a');
-        grad.addColorStop(1, '#5a4a2a');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 256, 256);
-        ctx.strokeStyle = '#d4a840';
-        ctx.lineWidth = 12;
-        ctx.strokeRect(20, 20, 216, 216);
-        ctx.fillStyle = '#d4a840';
-        ctx.font = '80px serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🎨', 128, 130);
-        return new THREE.CanvasTexture(canvas2);
-    }
+function generateFallbackTexture() {
+    const canvas2 = document.createElement('canvas');
+    canvas2.width = 256;
+    canvas2.height = 256;
+    const ctx = canvas2.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 256, 256);
+    grad.addColorStop(0, '#8a7a5a');
+    grad.addColorStop(1, '#5a4a2a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#d4a840';
+    ctx.lineWidth = 12;
+    ctx.strokeRect(20, 20, 216, 216);
+    ctx.fillStyle = '#d4a840';
+    ctx.font = '80px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎨', 128, 130);
+    return new THREE.CanvasTexture(canvas2);
+}
 
-    function makePictureFrame(z, facingRight, imageIndex) {
-        const frameW = 0.8,
-            frameH = 1.0,
-            borderW = 0.02,
-            depth = 0.12;
-        const group = new THREE.Group();
-        const wallX = facingRight ? ROOM_W / 2 - 0.02 : -ROOM_W / 2 + 0.02;
-        const offsetX = facingRight ? -0.1 : 0.1;
-        group.position.set(wallX + offsetX, 1.7, z);
-        group.rotation.y = facingRight ? -Math.PI / 2 : Math.PI / 2;
+// Fonction générique pour créer un cadre complet
+function createFrame(posX, posY, posZ, rotY, imageIndex) {
+    const frameW = 0.8, frameH = 1.0, borderW = 0.02, depth = 0.12;
+    const group = new THREE.Group();
+    group.position.set(posX, posY, posZ);
+    group.rotation.y = rotY;
 
-        const imgMat = new THREE.MeshLambertMaterial({
-            color: 0xffffff,
+    // Image
+    const imgMat = new THREE.MeshLambertMaterial({
+        color: 0xffffff,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1
+    });
+    const imageMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(frameW - borderW * 2.4, frameH - borderW * 2.4),
+        imgMat
+    );
+    imageMesh.position.set(0, 0, depth * 0.2);
+    group.add(imageMesh);
+
+    const imgUrl = 'images/corridor' + imageIndex + '.png';
+    const loader = new THREE.TextureLoader();
+    loader.load(imgUrl, function(tex) {
+        imageMesh.material = new THREE.MeshLambertMaterial({
+            map: tex,
             polygonOffset: true,
             polygonOffsetFactor: -1,
             polygonOffsetUnits: -1
         });
-        const imageMesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(frameW - borderW * 2.4, frameH - borderW * 2.4),
-            imgMat
-        );
-        imageMesh.position.set(0, 0, depth * 0.2);
-        group.add(imageMesh);
-
-        const imgUrl = 'images/corridor' + imageIndex + '.png';
-        const loader = new THREE.TextureLoader();
-        loader.load(imgUrl, function(tex) {
-            imageMesh.material = new THREE.MeshLambertMaterial({
-                map: tex,
-                polygonOffset: true,
-                polygonOffsetFactor: -1,
-                polygonOffsetUnits: -1
-            });
-            imageMesh.material.needsUpdate = true;
-        }, undefined, function() {
-            const fallbacks = ['images/corridor' + imageIndex + '.jpg', 'images/corridor' + imageIndex + '.webp'];
-            let tried = 0;
-
-            function tryFallback() {
-                if (tried >= fallbacks.length) {
-                    imageMesh.material = new THREE.MeshLambertMaterial({
-                        map: generateFallbackTexture(),
-                        polygonOffset: true,
-                        polygonOffsetFactor: -1,
-                        polygonOffsetUnits: -1
-                    });
-                    return;
-                }
-                const fLoader = new THREE.TextureLoader();
-                fLoader.load(fallbacks[tried], function(tex) {
-                    imageMesh.material = new THREE.MeshLambertMaterial({
-                        map: tex,
-                        polygonOffset: true,
-                        polygonOffsetFactor: -1,
-                        polygonOffsetUnits: -1
-                    });
-                    imageMesh.material.needsUpdate = true;
-                }, undefined, function() {
-                    tried++;
-                    tryFallback();
+        imageMesh.material.needsUpdate = true;
+    }, undefined, function() {
+        const fallbacks = ['images/corridor' + imageIndex + '.jpg', 'images/corridor' + imageIndex + '.webp'];
+        let tried = 0;
+        function tryFallback() {
+            if (tried >= fallbacks.length) {
+                imageMesh.material = new THREE.MeshLambertMaterial({
+                    map: generateFallbackTexture(),
+                    polygonOffset: true,
+                    polygonOffsetFactor: -1,
+                    polygonOffsetUnits: -1
                 });
+                return;
             }
-            tryFallback();
-        });
-
-        const bMat = new THREE.MeshLambertMaterial({ color: 0xb89040, emissive: 0x2a1a00, emissiveIntensity: 0.15 });
-        const top = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.04, borderW, depth * 0.8), bMat);
-        top.position.set(0, frameH / 2 - borderW / 2, 0);
-        group.add(top);
-        const bot = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.04, borderW, depth * 0.8), bMat);
-        bot.position.set(0, -frameH / 2 + borderW / 2, 0);
-        group.add(bot);
-        const left = new THREE.Mesh(new THREE.BoxGeometry(borderW, frameH - borderW * 2, depth * 0.8), bMat);
-        left.position.set(-frameW / 2 + borderW / 2, 0, 0);
-        group.add(left);
-        const right = new THREE.Mesh(new THREE.BoxGeometry(borderW, frameH - borderW * 2, depth * 0.8), bMat);
-        right.position.set(frameW / 2 - borderW / 2, 0, 0);
-        group.add(right);
-
-        const dotMat = new THREE.MeshLambertMaterial({ color: 0xd4a840, emissive: 0x3a2600, emissiveIntensity: 0.2 });
-        const corners = [
-            [-frameW / 2 + borderW * 0.6, frameH / 2 - borderW * 0.6],
-            [frameW / 2 - borderW * 0.6, frameH / 2 - borderW * 0.6],
-            [-frameW / 2 + borderW * 0.6, -frameH / 2 + borderW * 0.6],
-            [frameW / 2 - borderW * 0.6, -frameH / 2 + borderW * 0.6]
-        ];
-        corners.forEach(function(p) {
-            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 5, 4), dotMat);
-            dot.position.set(p[0], p[1], depth * 0.5);
-            group.add(dot);
-        });
-        scene.add(group);
-    }
-
-    const framePositions = [
-        { z: -5.5, facingRight: false, idx: 1 },
-        { z: -3.5, facingRight: true, idx: 2 },
-        { z: -1.5, facingRight: false, idx: 3 },
-        { z: 1.5, facingRight: true, idx: 4 },
-        { z: 3.5, facingRight: false, idx: 5 },
-        { z: 5.5, facingRight: true, idx: 6 }
-    ];
-    framePositions.forEach(function(f) {
-        makePictureFrame(f.z, f.facingRight, f.idx);
+            const fLoader = new THREE.TextureLoader();
+            fLoader.load(fallbacks[tried], function(tex) {
+                imageMesh.material = new THREE.MeshLambertMaterial({
+                    map: tex,
+                    polygonOffset: true,
+                    polygonOffsetFactor: -1,
+                    polygonOffsetUnits: -1
+                });
+                imageMesh.material.needsUpdate = true;
+            }, undefined, function() {
+                tried++;
+                tryFallback();
+            });
+        }
+        tryFallback();
     });
 
-    // ═══════════════════════════════════════════════════════════════
-    //  TÉLÉVISION
-    // ═══════════════════════════════════════════════════════════════
+    // Bordure
+    const bMat = new THREE.MeshLambertMaterial({ color: 0xb89040, emissive: 0x2a1a00, emissiveIntensity: 0.15 });
+    const top = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.04, borderW, depth * 0.8), bMat);
+    top.position.set(0, frameH / 2 - borderW / 2, 0);
+    group.add(top);
+    const bot = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.04, borderW, depth * 0.8), bMat);
+    bot.position.set(0, -frameH / 2 + borderW / 2, 0);
+    group.add(bot);
+    const left = new THREE.Mesh(new THREE.BoxGeometry(borderW, frameH - borderW * 2, depth * 0.8), bMat);
+    left.position.set(-frameW / 2 + borderW / 2, 0, 0);
+    group.add(left);
+    const right = new THREE.Mesh(new THREE.BoxGeometry(borderW, frameH - borderW * 2, depth * 0.8), bMat);
+    right.position.set(frameW / 2 - borderW / 2, 0, 0);
+    group.add(right);
+
+    // Coins
+    const dotMat = new THREE.MeshLambertMaterial({ color: 0xd4a840, emissive: 0x3a2600, emissiveIntensity: 0.2 });
+    const corners = [
+        [-frameW / 2 + borderW * 0.6, frameH / 2 - borderW * 0.6],
+        [frameW / 2 - borderW * 0.6, frameH / 2 - borderW * 0.6],
+        [-frameW / 2 + borderW * 0.6, -frameH / 2 + borderW * 0.6],
+        [frameW / 2 - borderW * 0.6, -frameH / 2 + borderW * 0.6]
+    ];
+    corners.forEach(function(p) {
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 5, 4), dotMat);
+        dot.position.set(p[0], p[1], depth * 0.5);
+        group.add(dot);
+    });
+
+    scene.add(group);
+}
+
+// Fonction pour les murs latéraux (existante)
+function makePictureFrame(z, facingRight, imageIndex) {
+    const wallX = facingRight ? ROOM_W / 2 - 0.02 : -ROOM_W / 2 + 0.02;
+    const offsetX = facingRight ? -0.1 : 0.1;
+    const posX = wallX + offsetX;
+    const rotY = facingRight ? -Math.PI / 2 : Math.PI / 2;
+    createFrame(posX, 1.7, z, rotY, imageIndex);
+}
+
+// Nouvelle fonction pour le mur intérieur (Z = 0)
+function makePictureFrameInner(x, imageIndex) {
+    createFrame(x, 1.7, 0, 0, imageIndex);
+}
+
+// Configuration des cadres :
+//  - 2 sur le mur intérieur (Z=0) à X = -3 et X = 3
+//  - 2 sur le mur gauche (Z=4 et Z=6)
+//  - 2 sur le mur droit (Z=4 et Z=6)
+makePictureFrameInner(-3, 1);
+makePictureFrameInner(3, 2);
+makePictureFrame(4.0, false, 3);   // gauche à Z=4
+makePictureFrame(6.0, false, 4);   // gauche à Z=6
+makePictureFrame(4.0, true, 5);    // droite à Z=4
+makePictureFrame(6.0, true, 6);    // droite à Z=6
+    // ─── TÉLÉVISION ──────────────────────────────────────────────
     function getVideoPath() {
         const hostname = window.location.hostname;
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -1354,7 +1214,6 @@ setupSwitchInteractions();
         screen.position.set(0, 0.90, 0.39);
         group.add(screen);
 
-        // ─── CRÉATION DE LA VIDÉO ──────────────────────────────────────
         const video = document.createElement('video');
         video.loop = false;
         video.muted = false;
@@ -1362,7 +1221,6 @@ setupSwitchInteractions();
         video.crossOrigin = "anonymous";
         video.preload = "auto";
 
-        // Historique
         let history = [];
         let historyIndex = -1;
 
@@ -1498,36 +1356,33 @@ setupSwitchInteractions();
         group.add(frame);
 
         const knobMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5, roughness: 0.4 });
-       // Dans createVintageTV, remplace la boucle :
-const knobConfigs = [
-    { x: -0.4, symbol: '⏻', action: 'power' },
-    { x: 0, symbol: '+', action: 'next' },
-    { x: 0.4, symbol: '−', action: 'prev' }
-];
-const knobMeshes = [];
-knobConfigs.forEach((cfg) => {
-    // CRÉER UN MATÉRIAU PROPRE À CE BOUTON (clone)
-    const mat = knobMat.clone();
-    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.10, 8), mat);
-    knob.rotation.x = Math.PI / 2;
-    knob.position.set(cfg.x, 0.47, 0.42);
-    knob.castShadow = true;
-    group.add(knob);
-    knobMeshes.push(knob);
-    knob.userData.action = cfg.action;
-    // icône...
-    const iconTex = createIconTexture(cfg.symbol);
-    const iconMat = new THREE.MeshBasicMaterial({
-        map: iconTex,
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthTest: true,
-        depthWrite: false
-    });
-    const icon = new THREE.Mesh(new THREE.PlaneGeometry(0.10, 0.10), iconMat);
-    icon.position.set(cfg.x, 0.47, 0.48);
-    group.add(icon);
-});
+        const knobConfigs = [
+            { x: -0.4, symbol: '⏻', action: 'power' },
+            { x: 0, symbol: '+', action: 'next' },
+            { x: 0.4, symbol: '−', action: 'prev' }
+        ];
+        const knobMeshes = [];
+        knobConfigs.forEach((cfg) => {
+            const mat = knobMat.clone();
+            const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.10, 8), mat);
+            knob.rotation.x = Math.PI / 2;
+            knob.position.set(cfg.x, 0.47, 0.42);
+            knob.castShadow = true;
+            group.add(knob);
+            knobMeshes.push(knob);
+            knob.userData.action = cfg.action;
+            const iconTex = createIconTexture(cfg.symbol);
+            const iconMat = new THREE.MeshBasicMaterial({
+                map: iconTex,
+                transparent: true,
+                side: THREE.DoubleSide,
+                depthTest: true,
+                depthWrite: false
+            });
+            const icon = new THREE.Mesh(new THREE.PlaneGeometry(0.10, 0.10), iconMat);
+            icon.position.set(cfg.x, 0.47, 0.48);
+            group.add(icon);
+        });
         const antMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.2 });
         const start1 = new THREE.Vector3(-0.30, 1.35, 0.1);
         const end1 = new THREE.Vector3(-0.40, 2.05, 0.15);
@@ -1568,7 +1423,6 @@ knobConfigs.forEach((cfg) => {
         window._videoMaterial = videoMaterial;
         window._isOn = isOn;
 
-        // Surbrillance subtile
         function highlightKnob(knob) {
             if (knob) {
                 knob.material.color.setHex(0xcccccc);
@@ -1629,7 +1483,7 @@ knobConfigs.forEach((cfg) => {
         console.log('📺 Télévision ajoutée.');
     }
 
-    // ─── CARTON AVEC DEUX RABATS ────────────────────────────────────
+    // ─── CARTON AVEC DEUX RABATS ────────────────────────────────
     function createCardboardBox() {
         const group = new THREE.Group();
         const boxW = 1.2,
@@ -1673,14 +1527,12 @@ knobConfigs.forEach((cfg) => {
         const intMat = new THREE.MeshStandardMaterial({ color: 0x8a7a6a, roughness: 0.9, side: THREE.DoubleSide });
         const hiMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xddbb99, emissive: 0x553322, emissiveIntensity: 0.2 });
 
-        // Fond
         const bottom = new THREE.Mesh(new THREE.BoxGeometry(boxW, thick, boxD), extMat);
         bottom.position.set(0, -boxH / 2, 0);
         bottom.castShadow = true;
         bottom.receiveShadow = true;
         group.add(bottom);
 
-        // Parois
         const back = new THREE.Mesh(new THREE.BoxGeometry(boxW, boxH, thick), extMat);
         back.position.set(0, 0, -boxD / 2);
         back.castShadow = true;
@@ -1702,7 +1554,6 @@ knobConfigs.forEach((cfg) => {
         right.receiveShadow = true;
         group.add(right);
 
-        // Intérieur
         const intBack = new THREE.Mesh(new THREE.PlaneGeometry(boxW - thick * 2, boxH - thick * 2), intMat);
         intBack.position.set(0, 0, -boxD / 2 + thick + 0.001);
         group.add(intBack);
@@ -1719,7 +1570,6 @@ knobConfigs.forEach((cfg) => {
         intRight.rotation.y = Math.PI / 2;
         group.add(intRight);
 
-        // Rabat avant
         const pivotFront = new THREE.Group();
         pivotFront.position.set(0, boxH / 2, boxD / 2);
         group.add(pivotFront);
@@ -1733,7 +1583,6 @@ knobConfigs.forEach((cfg) => {
         intFlapFront.rotation.x = -Math.PI / 2;
         pivotFront.add(intFlapFront);
 
-        // Rabat arrière avec image
         const pivotBack = new THREE.Group();
         pivotBack.position.set(0, boxH / 2, -boxD / 2);
         group.add(pivotBack);
@@ -1747,7 +1596,6 @@ knobConfigs.forEach((cfg) => {
         intFlapBack.rotation.x = -Math.PI / 2;
         pivotBack.add(intFlapBack);
 
-        // Image posée sur le rabat
         const imageUrl = getImagePath('cartonnote.png');
         const textureLoader = new THREE.TextureLoader();
         const noteTexture = textureLoader.load(imageUrl);
@@ -1881,7 +1729,6 @@ knobConfigs.forEach((cfg) => {
             trayWorldPos: new THREE.Vector3(posX - 0.3, posY + 0.15, posZ)
         };
 
-        // Câble
         const start = new THREE.Vector3(posX - 0.35, posY + 0.05, posZ);
         const end = new THREE.Vector3(-7.0, 0.2, 7.6);
         const mid = new THREE.Vector3((start.x + end.x) / 2, 0.02, (start.z + end.z) / 2 + 0.3);
@@ -1916,7 +1763,6 @@ knobConfigs.forEach((cfg) => {
         const group = new THREE.Group();
         group.position.set(posX, posY, posZ);
 
-        // Pieds
         const legMat = new THREE.MeshStandardMaterial({ color: legColor, roughness: 0.3, metalness: 0.2 });
         const legPositions = [
             [-width/2 + 0.06, -depth/2 + 0.06],
@@ -1931,7 +1777,6 @@ knobConfigs.forEach((cfg) => {
             group.add(leg);
         });
 
-        // Socle
         const baseMat = new THREE.MeshStandardMaterial({ color: 0x5a4a3a, roughness: 0.7 });
         const base = new THREE.Mesh(new THREE.BoxGeometry(width + 0.02, 0.04, depth + 0.02), baseMat);
         base.position.set(0, legHeight, 0);
@@ -1939,7 +1784,6 @@ knobConfigs.forEach((cfg) => {
         base.receiveShadow = true;
         group.add(base);
 
-        // Corps fixe
         const bodyMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6 });
         const bodyHeight = height - legHeight - drawerHeight - 0.04;
         const body = new THREE.Mesh(new THREE.BoxGeometry(width, bodyHeight, depth), bodyMat);
@@ -1948,7 +1792,6 @@ knobConfigs.forEach((cfg) => {
         body.receiveShadow = true;
         group.add(body);
 
-        // Tiroir mobile
         const drawerGroup = new THREE.Group();
         drawerGroup.position.set(0, legHeight + 0.04 + bodyHeight/2, 0);
         group.add(drawerGroup);
@@ -1975,7 +1818,6 @@ knobConfigs.forEach((cfg) => {
         backWall.castShadow = true;
         drawerGroup.add(backWall);
 
-        // Façade avant
         const frontMat = new THREE.MeshStandardMaterial({ color: 0xb89a7a, roughness: 0.5 });
         const frontPanel = new THREE.Mesh(
             new THREE.BoxGeometry(width * 0.84, drawerHeight * 0.87, 0.025),
@@ -1986,7 +1828,6 @@ knobConfigs.forEach((cfg) => {
         frontPanel.receiveShadow = true;
         drawerGroup.add(frontPanel);
 
-        // Poignée
         const handleMat = new THREE.MeshStandardMaterial({ color: handleColor, metalness: 0.6, roughness: 0.3 });
         const hBaseL = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.05, 6), handleMat);
         hBaseL.rotation.x = Math.PI / 2;
@@ -2001,7 +1842,6 @@ knobConfigs.forEach((cfg) => {
         handleBar.position.set(0, 0.04, depth/2 + 0.04);
         drawerGroup.add(handleBar);
 
-        // Zone cliquable
         const clickArea = new THREE.Mesh(
             new THREE.PlaneGeometry(width * 0.80, drawerHeight * 0.85),
             new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide })
@@ -2031,7 +1871,6 @@ knobConfigs.forEach((cfg) => {
         return drawerState;
     }
 
-    
     // ─── CRÉATION DES OBJETS ──────────────────────────────────────
     createVintageTV();
     createCardboardBox();
@@ -2051,15 +1890,15 @@ knobConfigs.forEach((cfg) => {
         openDistance: 0.28,
     });
 
-    // ─── GRAND TABLEAU VERT ──────────────────────────────────────────
+    // ─── GRAND TABLEAU VERT ──────────────────────────────────────
     (function createGreenBoard() {
         const group = new THREE.Group();
         const boardW = 2.8;
         const boardH = 2.0;
         const depth = 0.06;
-        const posX = 4.16;
+        const posX = 1;
         const posY = 1.70;
-        const posZ = -7.20;
+        const posZ = 0;
 
         const greenMat = new THREE.MeshStandardMaterial({ color: 0x2a6b2a, roughness: 0.7, metalness: 0.05 });
         const boardMesh = new THREE.Mesh(new THREE.BoxGeometry(boardW, boardH, depth), greenMat);
@@ -2068,7 +1907,6 @@ knobConfigs.forEach((cfg) => {
         boardMesh.receiveShadow = true;
         group.add(boardMesh);
 
-        // Texture craie
         const chalkCanvas = document.createElement('canvas');
         chalkCanvas.width = 256;
         chalkCanvas.height = 256;
@@ -2099,7 +1937,6 @@ knobConfigs.forEach((cfg) => {
         texturePlane.position.set(0, 0, depth / 2 + 0.001);
         group.add(texturePlane);
 
-        // Image "enquete.PNG"
         const imageUrl = getImagePath('enquete.PNG');
         const loader = new THREE.TextureLoader();
         const imgMat = new THREE.MeshStandardMaterial({
@@ -2167,7 +2004,6 @@ knobConfigs.forEach((cfg) => {
             console.warn('⚠️ Image enquete.PNG non chargée, fallback affiché.');
         });
 
-        // Cadre
         const frameMat2 = new THREE.MeshStandardMaterial({ color: 0x6a4e2e, roughness: 0.7, metalness: 0.1 });
         const frameW = 0.07;
         const topFrame2 = new THREE.Mesh(new THREE.BoxGeometry(boardW + 0.06, frameW, 0.12), frameMat2);
@@ -2206,126 +2042,50 @@ knobConfigs.forEach((cfg) => {
         console.log('🟩 Tableau vert avec enquete.PNG ajouté');
     })();
 
-    // ─── DISQUETTES ──────────────────────────────────────────────────
-    function createFloppyDisk3D(color, name, file) {
-        const group = new THREE.Group();
-        const bodyMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 });
-        const labelMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        const metalMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6, roughness: 0.3 });
-
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.16), bodyMat);
-        body.position.set(0, 0, 0);
-        body.castShadow = true;
-        body.receiveShadow = true;
-        group.add(body);
-
-        const label = new THREE.Mesh(new THREE.PlaneGeometry(0.10, 0.08), labelMat);
-        label.position.set(0, 0.003, 0.081);
-        group.add(label);
-
-        const slider = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.004, 0.035), metalMat);
-        slider.position.set(-0.04, 0.003, 0.081);
-        group.add(slider);
-
-        const hole = new THREE.Mesh(new THREE.CircleGeometry(0.012, 8), new THREE.MeshBasicMaterial({ color: 0x222222 }));
-        hole.position.set(0.05, 0.003, 0.081);
-        group.add(hole);
-
-        group.userData.diskName = name;
-        group.userData.videoFile = file;
-        return group;
-    }
+    // ─── DISQUETTES ──────────────────────────────────────────────
     function createFloppyDisks() {
-    // Supprime l'ancien groupe s'il existe
-    if (window._diskGroup) {
-        scene.remove(window._diskGroup);
-        window._diskGroup = null;
-    }
+        if (window._diskGroup) {
+            scene.remove(window._diskGroup);
+            window._diskGroup = null;
+        }
 
-    const diskGroup = new THREE.Group();
-    // Positionne les disquettes à 2 mètres devant la caméra (mais en monde absolu)
-    // Comme la caméra est à (200, 1.7, 0) orientée vers +Z, on les met à (200, 1.7, 4)
-    diskGroup.position.set(200, 1.7, 4);
-    diskGroup.rotation.y = 0;
+        const diskGroup = new THREE.Group();
+        diskGroup.position.set(201.46, 1.5, 4.95);
+        diskGroup.rotation.y = 0;
 
-    const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffaa00];
-    const names = ['Rouge', 'Vert', 'Bleu', 'Jaune'];
-
-    for (let i = 0; i < 4; i++) {
-        // Boîte plate comme une disquette, mais grande (0.5 x 0.1 x 0.5)
-        const geo = new THREE.BoxGeometry(0.5, 0.1, 0.5);
+        const geo = new THREE.BoxGeometry(2, 0.5, 2);
         const mat = new THREE.MeshStandardMaterial({
-            color: colors[i],
-            emissive: colors[i],
-            emissiveIntensity: 0.8,
-            roughness: 0.2,
-            metalness: 0.1
+            color: 0xffaa00,
+            emissive: 0xffaa00,
+            emissiveIntensity: 1,
+            roughness: 0,
+            metalness: 0
         });
         const disk = new THREE.Mesh(geo, mat);
-        // Position relative dans le groupe
-        const x = (i % 2) * 0.6 - 0.3;
-        const z = Math.floor(i / 2) * 0.6 - 0.3;
-        disk.position.set(x, 0, z);
-        disk.rotation.y = i * 0.5;
-        disk.userData.diskName = names[i];
+        disk.userData.diskName = 'TEST';
         disk.userData.isDisk = true;
         diskGroup.add(disk);
+
+        const disk2 = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 0.5, 1),
+            new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1 })
+        );
+        disk2.position.set(2, 0, 0);
+        disk2.userData.isDisk = true;
+        diskGroup.add(disk2);
+
+        scene.add(diskGroup);
+        window._diskGroup = diskGroup;
+        window._disks = diskGroup.children;
+        console.log('💾 GROSSES DISQUETTES placées à (200, 1.7, 5) !');
     }
 
-    scene.add(diskGroup);
-    window._diskGroup = diskGroup;
-    window._disks = diskGroup.children;
-    console.log('💾 Disquettes placées à (200, 1.7, 4) !');
-}
-
-// La fonction fallback appelle simplement la même chose
-function createFallbackDisks() {
-    createFloppyDisks();
-}
-function createFloppyDisks() {
-    if (window._diskGroup) {
-        scene.remove(window._diskGroup);
-        window._diskGroup = null;
+    function createFallbackDisks() {
+        createFloppyDisks();
     }
-
-    const diskGroup = new THREE.Group();
-    // Position absolue : juste devant la caméra (qui est à (200, 1.7, 0))
-    diskGroup.position.set(201.46, 1.5, 4.95);
-    diskGroup.rotation.y = 0;
-
-    // Créer une grosse boîte jaune fluo
-    const geo = new THREE.BoxGeometry(2, 0.5, 2);
-    const mat = new THREE.MeshStandardMaterial({
-        color: 0xffaa00,
-        emissive: 0xffaa00,
-        emissiveIntensity: 1,
-        roughness: 0,
-        metalness: 0
-    });
-    const disk = new THREE.Mesh(geo, mat);
-    disk.userData.diskName = 'TEST';
-    disk.userData.isDisk = true;
-    diskGroup.add(disk);
-
-    // Ajouter une deuxième boîte à côté
-    const disk2 = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 0.5, 1),
-        new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1 })
-    );
-    disk2.position.set(2, 0, 0);
-    disk2.userData.isDisk = true;
-    diskGroup.add(disk2);
-
-    scene.add(diskGroup);
-    window._diskGroup = diskGroup;
-    window._disks = diskGroup.children;
-    console.log('💾 GROSSES DISQUETTES placées à (200, 1.7, 5) !');
-}
-
-function createFallbackDisks() {
     createFloppyDisks();
-}
-    // ─── INTERACTIONS ──────────────────────────────────────────────────
+
+    // ─── INTERACTIONS ──────────────────────────────────────────────
     // Télévision
     function setupTVInteractions() {
         const raycaster = new THREE.Raycaster();
@@ -2813,78 +2573,7 @@ function createFallbackDisks() {
     }
     setupDiskInteractions();
 
-    // ─── PORTE INTÉRIEURE (ouvrir/fermer) ────────────────────────────
-    function openMidDoor() {
-        if (window._midDoorAnimating) return;
-        const pivot = window._midDoorPivot;
-        const isOpen = window._midDoorOpen;
-        const targetAngle = isOpen ? 0 : Math.PI / 2;
-        window._midDoorAnimating = true;
-        const duration = 600;
-        const startTime = performance.now();
-        const startRot = pivot.rotation.y;
-
-        function animateMidDoor(time) {
-            const elapsed = time - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            const currentAngle = startRot + (targetAngle - startRot) * eased;
-            pivot.rotation.y = currentAngle;
-            if (progress < 1) {
-                requestAnimationFrame(animateMidDoor);
-            } else {
-                pivot.rotation.y = targetAngle;
-                window._midDoorOpen = !isOpen;
-                window._midDoorAnimating = false;
-            }
-        }
-        requestAnimationFrame(animateMidDoor);
-    }
-
-    const raycasterMidDoor = new THREE.Raycaster();
-    const mouseMidDoor = new THREE.Vector2();
-    let hoverMidDoor = false;
-    let midDoorHighlighted = false;
-
-    function updateMidDoorInteraction(event) {
-        const rect = canvas.getBoundingClientRect();
-        mouseMidDoor.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouseMidDoor.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycasterMidDoor.setFromCamera(mouseMidDoor, camera);
-        const pivot = window._midDoorPivot;
-        if (!pivot) return;
-        const doorGroup = window._midDoorGroup;
-        const meshes = [];
-        doorGroup.children.forEach(child => {
-            if (child.isMesh && (child === window._midDoorMesh || child.userData.isClickArea)) {
-                meshes.push(child);
-            }
-        });
-        const intersects = raycasterMidDoor.intersectObjects(meshes);
-        if (intersects.length > 0) {
-            canvas.style.cursor = 'pointer';
-            if (!midDoorHighlighted && !window._midDoorOpen) {
-                window._midDoorMesh.material = mDoorHighlight;
-                midDoorHighlighted = true;
-            }
-            hoverMidDoor = true;
-        } else {
-            if (midDoorHighlighted) {
-                window._midDoorMesh.material = mDoor;
-                midDoorHighlighted = false;
-            }
-            hoverMidDoor = false;
-        }
-    }
-    canvas.addEventListener('mousemove', updateMidDoorInteraction);
-
-    canvas.addEventListener('click', function(event) {
-        if (hoverMidDoor && !window._midDoorAnimating) {
-            openMidDoor();
-        }
-    });
-
-    // ─── PORTE EXTÉRIEURE (monologue) ──────────────────────────────────
+    // ─── PORTE EXTÉRIEURE (monologue) ────────────────────────────
     const raycasterDoor = new THREE.Raycaster();
     const mouseDoor = new THREE.Vector2();
     let hoverDoor = false;
@@ -2930,7 +2619,7 @@ function createFallbackDisks() {
         }
     });
 
-    // ─── MONOLOGUE ──────────────────────────────────────────────────────
+    // ─── MONOLOGUE ────────────────────────────────────────────────
     function showMonologue() {
         const container = document.createElement('div');
         container.id = 'monologueContainer';
@@ -3070,6 +2759,6 @@ function createFallbackDisks() {
         }, 400);
     }
 
-    // ─── RETOURNER UN GROUPE VIDE POUR LE DÉCALAGE ──────────────────
+    // ─── RETOURNER UN GROUPE VIDE ────────────────────────────────
     return new THREE.Group();
 }
