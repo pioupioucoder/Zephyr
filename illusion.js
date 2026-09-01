@@ -1,4 +1,4 @@
-// illusion.js – version finale, une seule pièce, mur intérieur avec collision
+// illusion.js – version finale avec porte interactive (ouverture/sortie physique) + tous les objets
 import * as THREE from 'three';
 
 export function buildIllusionWorld(scene, camera, canvas) {
@@ -145,9 +145,9 @@ export function buildIllusionWorld(scene, camera, canvas) {
     const WALL_H = 3.6;
     const ROOM_W = 16;
     const ROOM_D = 16;
-    const HALF_D = ROOM_D / 2;   // profondeur de la nouvelle pièce (8)
+    const HALF_D = ROOM_D / 2;
 
-    // ─── SOL (unique, texture principale) ──────────────────────
+    // ─── SOL ──────────────────────────────────────────────────────
     const floor = new THREE.Mesh(
         new THREE.PlaneGeometry(ROOM_W, HALF_D),
         mFloor
@@ -157,11 +157,9 @@ export function buildIllusionWorld(scene, camera, canvas) {
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // ─── MURS EXTÉRIEURS (réduits à la moitié avant) ──────────
-    // Mur arrière (intérieur) – solide, sans porte
+    // ─── MURS EXTÉRIEURS ──────────────────────────────────────────
     plane(ROOM_W, WALL_H, mWall, 0, WALL_H / 2, 0, 0, 0);
 
-    // Mur avant (avec fenêtre et porte) – on conserve l'ancien code en adaptant la position z
     (function() {
         const fw = 2.8, fh = 2.0;
         const doorW = 1.2, doorH = 2.2;
@@ -209,6 +207,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         box(0.08, doorH, 0.08, frameMatDoor, doorX + doorW / 2 + 0.04, doorH / 2 + 0.025, doorZ);
         box(doorW + 0.16, 0.08, 0.08, frameMatDoor, doorX, doorH + 0.025 + 0.04, doorZ);
 
+        // Porte interactive
         const pivot = new THREE.Group();
         pivot.position.set(doorX - doorW / 2, doorH / 2 + 0.025, doorZ);
         scene.add(pivot);
@@ -241,29 +240,31 @@ export function buildIllusionWorld(scene, camera, canvas) {
         window._doorHighlightMat = mDoorHighlight;
         window._doorOpen = false;
         window._doorAnimating = false;
+        window._doorData = {
+            localX: doorX,
+            localZ: doorZ,
+            halfWidth: doorW / 2,
+            isOpen: false
+        };
     })();
 
-    // Murs latéraux (gauche et droite) – de z=0 à z=HALF_D
+    // Murs latéraux
     plane(HALF_D, WALL_H, mWall, -ROOM_W / 2, WALL_H / 2, HALF_D / 2, 0, Math.PI / 2);
     plane(HALF_D, WALL_H, mWall, ROOM_W / 2, WALL_H / 2, HALF_D / 2, 0, -Math.PI / 2);
 
-    // ─── PLAFOND (réduit à la moitié avant) ─────────────────────
+    // ─── PLAFOND ─────────────────────────────────────────────────
     plane(ROOM_W, HALF_D, mCeil, 0, WALL_H, HALF_D / 2, Math.PI / 2);
 
-    // ─── PLINTHES EN BOIS ROUGE ────────────────────────────────
+    // ─── PLINTHES ────────────────────────────────────────────────
     const mBaseboard = new THREE.MeshStandardMaterial({ color: 0x6a1a1a, roughness: 0.7 });
     const baseH = 0.12;
     const baseDepth = 0.03;
-    // Mur arrière (z=0)
     box(ROOM_W, baseH, baseDepth, mBaseboard, 0, baseH / 2, 0.02);
-    // Mur avant (z=HALF_D)
     box(ROOM_W, baseH, baseDepth, mBaseboard, 0, baseH / 2, HALF_D - 0.02);
-    // Mur gauche
     box(baseDepth, baseH, HALF_D, mBaseboard, -ROOM_W / 2 + 0.02, baseH / 2, HALF_D / 2);
-    // Mur droit
     box(baseDepth, baseH, HALF_D, mBaseboard, ROOM_W / 2 - 0.02, baseH / 2, HALF_D / 2);
 
-    // ─── COLLISION POUR MUR INTÉRIEUR (Z=0) ────────────────────
+    // ─── COLLISION MUR INTÉRIEUR ────────────────────────────────
     const wallCollider = new THREE.Mesh(
         new THREE.BoxGeometry(ROOM_W, WALL_H, 0.05),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide })
@@ -274,7 +275,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
     wallCollider.name = 'wallCollider';
     scene.add(wallCollider);
 
-    // ─── LAMPE MODERNE (seulement celle de la nouvelle pièce) ──
+    // ─── LAMPE MODERNE ───────────────────────────────────────────
     const lampConfigs = [
         {
             id: 'right',
@@ -292,79 +293,79 @@ export function buildIllusionWorld(scene, camera, canvas) {
     const switchMeshes = [];
 
     lampConfigs.forEach((cfg) => {
-    const group = new THREE.Group();
-    group.position.copy(cfg.position);
+        const group = new THREE.Group();
+        group.position.copy(cfg.position);
 
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.8, roughness: 0.2 });
-    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), headMat);
-    head.position.y = 0;
-    head.rotation.x = Math.PI;
-    group.add(head);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.8, roughness: 0.2 });
+        const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), headMat);
+        head.position.y = 0;
+        head.rotation.x = Math.PI;
+        group.add(head);
 
-    const bulbMat = new THREE.MeshStandardMaterial({
-        color: cfg.color,
-        emissive: cfg.color,
-        emissiveIntensity: 0.8,
-        transparent: true,
-        opacity: 0.9
+        const bulbMat = new THREE.MeshStandardMaterial({
+            color: cfg.color,
+            emissive: cfg.color,
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.9
+        });
+        bulbMat.color.setHex(0x444444);
+        bulbMat.emissive.setHex(0x444444);
+        bulbMat.emissiveIntensity = 0;
+
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), bulbMat);
+        bulb.position.y = -0.15;
+        group.add(bulb);
+
+        const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
+        light.position.copy(cfg.position);
+        light.position.y -= 0.15;
+        light.intensity = 0;
+        scene.add(light);
+
+        const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 4), cableMat);
+        cable.position.y = 0.4;
+        group.add(cable);
+
+        scene.add(group);
+
+        lampStates[cfg.id] = false;
+        lampMeshes[cfg.id] = {
+            light: light,
+            bulbMat: bulbMat,
+            originalIntensity: cfg.intensity,
+            color: cfg.color
+        };
+
+        const switchGroup = new THREE.Group();
+        switchGroup.position.copy(cfg.switchPos);
+
+        const plateMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.2 });
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.04), plateMat);
+        plate.position.set(0, 0, 0);
+        switchGroup.add(plate);
+
+        const btnMat = new THREE.MeshStandardMaterial({
+            color: 0xaa4444,
+            emissive: 0x000000,
+            emissiveIntensity: 0,
+            roughness: 0.4
+        });
+        const btn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), btnMat);
+        btn.position.set(0, 0, 0.03);
+        btn.userData.isSwitch = true;
+        btn.userData.lampId = cfg.id;
+        btn.userData.defaultColor = 0xaa4444;
+        btn.userData.hoverColor = 0x88ff88;
+        switchGroup.add(btn);
+
+        switchGroup.rotation.y = cfg.switchAngle;
+        scene.add(switchGroup);
+
+        switchMeshes.push(btn);
     });
-    // Éteindre l'ampoule par défaut
-    bulbMat.color.setHex(0x444444);
-    bulbMat.emissive.setHex(0x444444);
-    bulbMat.emissiveIntensity = 0;
 
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), bulbMat);
-    bulb.position.y = -0.15;
-    group.add(bulb);
-
-    const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
-    light.position.copy(cfg.position);
-    light.position.y -= 0.15;
-    light.intensity = 0;   // éteinte par défaut
-    scene.add(light);
-
-    const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 4), cableMat);
-    cable.position.y = 0.4;
-    group.add(cable);
-
-    scene.add(group);
-
-    lampStates[cfg.id] = false;   // initialisé à false
-    lampMeshes[cfg.id] = {
-        light: light,
-        bulbMat: bulbMat,
-        originalIntensity: cfg.intensity,
-        color: cfg.color
-    };
-
-    const switchGroup = new THREE.Group();
-    switchGroup.position.copy(cfg.switchPos);
-
-    const plateMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.2 });
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.04), plateMat);
-    plate.position.set(0, 0, 0);
-    switchGroup.add(plate);
-
-    const btnMat = new THREE.MeshStandardMaterial({
-        color: 0xaa4444,   // rouge pour éteint
-        emissive: 0x000000,
-        emissiveIntensity: 0,
-        roughness: 0.4
-    });
-    const btn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), btnMat);
-    btn.position.set(0, 0, 0.03);
-    btn.userData.isSwitch = true;
-    btn.userData.lampId = cfg.id;
-    btn.userData.defaultColor = 0xaa4444;   // initialisé à rouge
-    btn.userData.hoverColor = 0x88ff88;
-    switchGroup.add(btn);
-
-    switchGroup.rotation.y = cfg.switchAngle;
-    scene.add(switchGroup);
-
-    switchMeshes.push(btn);
-});
     function setupSwitchInteractions() {
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -426,10 +427,9 @@ export function buildIllusionWorld(scene, camera, canvas) {
             }
         });
     }
-
     setupSwitchInteractions();
 
-    // ─── LIT (déplacé en avant) ──────────────────────────────────
+    // ─── LIT ──────────────────────────────────────────────────────
     function createBed() {
         const group = new THREE.Group();
         const E = 1.1, W = 0;
@@ -536,10 +536,11 @@ export function buildIllusionWorld(scene, camera, canvas) {
         group.position.set(-7, 0, 0.8);
         group.rotation.y = Math.PI / 2;
         scene.add(group);
+        window._bedPosition = group.position.clone();
     }
     createBed();
 
-    // ─── LIVRE (inchangé) ────────────────────────────────────────
+    // ─── LIVRE ────────────────────────────────────────────────────
     function getJsonUrl() {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             return '/projet/Illusion/livres/mon_livre.json';
@@ -874,7 +875,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
 
     setTimeout(ajouterLivreSurBibliotheque, 400);
 
-    // ─── BIBLIOTHÈQUE (déplacée en avant) ──────────────────────
+    // ─── BIBLIOTHÈQUE ──────────────────────────────────────────
     function createBookshelf() {
         const group = new THREE.Group();
         window._bibliotheque = group;
@@ -931,152 +932,143 @@ export function buildIllusionWorld(scene, camera, canvas) {
         group.position.set(7.7, 0, 2);
         group.rotation.y = Math.PI / 2;
         scene.add(group);
+        window._bookshelfPosition = group.position.clone();
     }
     createBookshelf();
 
     // ─── CADRES AVEC IMAGES ──────────────────────────────────────
-function generateFallbackTexture() {
-    const canvas2 = document.createElement('canvas');
-    canvas2.width = 256;
-    canvas2.height = 256;
-    const ctx = canvas2.getContext('2d');
-    const grad = ctx.createLinearGradient(0, 0, 256, 256);
-    grad.addColorStop(0, '#8a7a5a');
-    grad.addColorStop(1, '#5a4a2a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 256, 256);
-    ctx.strokeStyle = '#d4a840';
-    ctx.lineWidth = 12;
-    ctx.strokeRect(20, 20, 216, 216);
-    ctx.fillStyle = '#d4a840';
-    ctx.font = '80px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🎨', 128, 130);
-    return new THREE.CanvasTexture(canvas2);
-}
+    function generateFallbackTexture() {
+        const canvas2 = document.createElement('canvas');
+        canvas2.width = 256;
+        canvas2.height = 256;
+        const ctx = canvas2.getContext('2d');
+        const grad = ctx.createLinearGradient(0, 0, 256, 256);
+        grad.addColorStop(0, '#8a7a5a');
+        grad.addColorStop(1, '#5a4a2a');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.strokeStyle = '#d4a840';
+        ctx.lineWidth = 12;
+        ctx.strokeRect(20, 20, 216, 216);
+        ctx.fillStyle = '#d4a840';
+        ctx.font = '80px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎨', 128, 130);
+        return new THREE.CanvasTexture(canvas2);
+    }
 
-// Fonction générique pour créer un cadre complet
-function createFrame(posX, posY, posZ, rotY, imageIndex) {
-    const frameW = 0.8, frameH = 1.0, borderW = 0.02, depth = 0.12;
-    const group = new THREE.Group();
-    group.position.set(posX, posY, posZ);
-    group.rotation.y = rotY;
+    function createFrame(posX, posY, posZ, rotY, imageIndex) {
+        const frameW = 0.8, frameH = 1.0, borderW = 0.02, depth = 0.12;
+        const group = new THREE.Group();
+        group.position.set(posX, posY, posZ);
+        group.rotation.y = rotY;
 
-    // Image
-    const imgMat = new THREE.MeshLambertMaterial({
-        color: 0xffffff,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
-    });
-    const imageMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(frameW - borderW * 2.4, frameH - borderW * 2.4),
-        imgMat
-    );
-    imageMesh.position.set(0, 0, depth * 0.2);
-    group.add(imageMesh);
-
-    const imgUrl = 'images/corridor' + imageIndex + '.png';
-    const loader = new THREE.TextureLoader();
-    loader.load(imgUrl, function(tex) {
-        imageMesh.material = new THREE.MeshLambertMaterial({
-            map: tex,
+        const imgMat = new THREE.MeshLambertMaterial({
+            color: 0xffffff,
             polygonOffset: true,
             polygonOffsetFactor: -1,
             polygonOffsetUnits: -1
         });
-        imageMesh.material.needsUpdate = true;
-    }, undefined, function() {
-        const fallbacks = ['images/corridor' + imageIndex + '.jpg', 'images/corridor' + imageIndex + '.webp'];
-        let tried = 0;
-        function tryFallback() {
-            if (tried >= fallbacks.length) {
-                imageMesh.material = new THREE.MeshLambertMaterial({
-                    map: generateFallbackTexture(),
-                    polygonOffset: true,
-                    polygonOffsetFactor: -1,
-                    polygonOffsetUnits: -1
-                });
-                return;
-            }
-            const fLoader = new THREE.TextureLoader();
-            fLoader.load(fallbacks[tried], function(tex) {
-                imageMesh.material = new THREE.MeshLambertMaterial({
-                    map: tex,
-                    polygonOffset: true,
-                    polygonOffsetFactor: -1,
-                    polygonOffsetUnits: -1
-                });
-                imageMesh.material.needsUpdate = true;
-            }, undefined, function() {
-                tried++;
-                tryFallback();
+        const imageMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(frameW - borderW * 2.4, frameH - borderW * 2.4),
+            imgMat
+        );
+        imageMesh.position.set(0, 0, depth * 0.2);
+        group.add(imageMesh);
+
+        const imgUrl = 'images/corridor' + imageIndex + '.png';
+        const loader = new THREE.TextureLoader();
+        loader.load(imgUrl, function(tex) {
+            imageMesh.material = new THREE.MeshLambertMaterial({
+                map: tex,
+                polygonOffset: true,
+                polygonOffsetFactor: -1,
+                polygonOffsetUnits: -1
             });
-        }
-        tryFallback();
-    });
+            imageMesh.material.needsUpdate = true;
+        }, undefined, function() {
+            const fallbacks = ['images/corridor' + imageIndex + '.jpg', 'images/corridor' + imageIndex + '.webp'];
+            let tried = 0;
+            function tryFallback() {
+                if (tried >= fallbacks.length) {
+                    imageMesh.material = new THREE.MeshLambertMaterial({
+                        map: generateFallbackTexture(),
+                        polygonOffset: true,
+                        polygonOffsetFactor: -1,
+                        polygonOffsetUnits: -1
+                    });
+                    return;
+                }
+                const fLoader = new THREE.TextureLoader();
+                fLoader.load(fallbacks[tried], function(tex) {
+                    imageMesh.material = new THREE.MeshLambertMaterial({
+                        map: tex,
+                        polygonOffset: true,
+                        polygonOffsetFactor: -1,
+                        polygonOffsetUnits: -1
+                    });
+                    imageMesh.material.needsUpdate = true;
+                }, undefined, function() {
+                    tried++;
+                    tryFallback();
+                });
+            }
+            tryFallback();
+        });
 
-    // Bordure
-    const bMat = new THREE.MeshLambertMaterial({ color: 0xb89040, emissive: 0x2a1a00, emissiveIntensity: 0.15 });
-    const top = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.04, borderW, depth * 0.8), bMat);
-    top.position.set(0, frameH / 2 - borderW / 2, 0);
-    group.add(top);
-    const bot = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.04, borderW, depth * 0.8), bMat);
-    bot.position.set(0, -frameH / 2 + borderW / 2, 0);
-    group.add(bot);
-    const left = new THREE.Mesh(new THREE.BoxGeometry(borderW, frameH - borderW * 2, depth * 0.8), bMat);
-    left.position.set(-frameW / 2 + borderW / 2, 0, 0);
-    group.add(left);
-    const right = new THREE.Mesh(new THREE.BoxGeometry(borderW, frameH - borderW * 2, depth * 0.8), bMat);
-    right.position.set(frameW / 2 - borderW / 2, 0, 0);
-    group.add(right);
+        const bMat = new THREE.MeshLambertMaterial({ color: 0xb89040, emissive: 0x2a1a00, emissiveIntensity: 0.15 });
+        const top = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.04, borderW, depth * 0.8), bMat);
+        top.position.set(0, frameH / 2 - borderW / 2, 0);
+        group.add(top);
+        const bot = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.04, borderW, depth * 0.8), bMat);
+        bot.position.set(0, -frameH / 2 + borderW / 2, 0);
+        group.add(bot);
+        const left = new THREE.Mesh(new THREE.BoxGeometry(borderW, frameH - borderW * 2, depth * 0.8), bMat);
+        left.position.set(-frameW / 2 + borderW / 2, 0, 0);
+        group.add(left);
+        const right = new THREE.Mesh(new THREE.BoxGeometry(borderW, frameH - borderW * 2, depth * 0.8), bMat);
+        right.position.set(frameW / 2 - borderW / 2, 0, 0);
+        group.add(right);
 
-    // Coins
-    const dotMat = new THREE.MeshLambertMaterial({ color: 0xd4a840, emissive: 0x3a2600, emissiveIntensity: 0.2 });
-    const corners = [
-        [-frameW / 2 + borderW * 0.6, frameH / 2 - borderW * 0.6],
-        [frameW / 2 - borderW * 0.6, frameH / 2 - borderW * 0.6],
-        [-frameW / 2 + borderW * 0.6, -frameH / 2 + borderW * 0.6],
-        [frameW / 2 - borderW * 0.6, -frameH / 2 + borderW * 0.6]
-    ];
-    corners.forEach(function(p) {
-        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 5, 4), dotMat);
-        dot.position.set(p[0], p[1], depth * 0.5);
-        group.add(dot);
-    });
+        const dotMat = new THREE.MeshLambertMaterial({ color: 0xd4a840, emissive: 0x3a2600, emissiveIntensity: 0.2 });
+        const corners = [
+            [-frameW / 2 + borderW * 0.6, frameH / 2 - borderW * 0.6],
+            [frameW / 2 - borderW * 0.6, frameH / 2 - borderW * 0.6],
+            [-frameW / 2 + borderW * 0.6, -frameH / 2 + borderW * 0.6],
+            [frameW / 2 - borderW * 0.6, -frameH / 2 + borderW * 0.6]
+        ];
+        corners.forEach(function(p) {
+            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 5, 4), dotMat);
+            dot.position.set(p[0], p[1], depth * 0.5);
+            group.add(dot);
+        });
 
-    scene.add(group);
-}
+        scene.add(group);
+    }
 
-// Fonction pour les murs latéraux (existante)
-function makePictureFrame(z, facingRight, imageIndex) {
-    const wallX = facingRight ? ROOM_W / 2 - 0.02 : -ROOM_W / 2 + 0.02;
-    const offsetX = facingRight ? -0.1 : 0.1;
-    const posX = wallX + offsetX;
-    const rotY = facingRight ? -Math.PI / 2 : Math.PI / 2;
-    createFrame(posX, 1.7, z, rotY, imageIndex);
-}
+    function makePictureFrame(z, facingRight, imageIndex) {
+        const wallX = facingRight ? ROOM_W / 2 - 0.02 : -ROOM_W / 2 + 0.02;
+        const offsetX = facingRight ? -0.1 : 0.1;
+        const posX = wallX + offsetX;
+        const rotY = facingRight ? -Math.PI / 2 : Math.PI / 2;
+        createFrame(posX, 1.7, z, rotY, imageIndex);
+    }
 
-// Nouvelle fonction pour le mur intérieur (Z = 0)
-function makePictureFrameInner(x, imageIndex) {
-    createFrame(x, 1.7, 0, 0, imageIndex);
-}
-// Fonction pour le mur avant (celui avec la fenêtre)
-function makePictureFrameFront(x, imageIndex) {
-    createFrame(x, 1.7, HALF_D, Math.PI, imageIndex);
-}
+    function makePictureFrameInner(x, imageIndex) {
+        createFrame(x, 1.7, 0, 0, imageIndex);
+    }
+    function makePictureFrameFront(x, imageIndex) {
+        createFrame(x, 1.7, HALF_D, Math.PI, imageIndex);
+    }
 
-// Configuration des cadres :
-//  - 2 sur le mur intérieur (Z=0) à X = -3 et X = 3
-//  - 2 sur le mur gauche (Z=4 et Z=6)
-//  - 2 sur le mur droit (Z=4 et Z=6)
-makePictureFrameInner(-3, 1);
-makePictureFrameInner(6, 2);
-makePictureFrame(4.0, false, 5);   // gauche à Z=4
-makePictureFrame(4.0, true, 6);    // droite à Z=4
-makePictureFrameFront(-4, 4);      // mur avant gauche
-makePictureFrameFront(4, 3);       // mur avant droite
+    makePictureFrameInner(-3, 1);
+    makePictureFrameInner(6, 2);
+    makePictureFrame(4.0, false, 5);
+    makePictureFrame(4.0, true, 6);
+    makePictureFrameFront(-4, 4);
+    makePictureFrameFront(4, 3);
+
     // ─── TÉLÉVISION ──────────────────────────────────────────────
     function getVideoPath() {
         const hostname = window.location.hostname;
@@ -1431,6 +1423,7 @@ makePictureFrameFront(4, 3);       // mur avant droite
         window._blackMat = blackMat;
         window._videoMaterial = videoMaterial;
         window._isOn = isOn;
+        window._tvPosition = group.position.clone();
 
         function highlightKnob(knob) {
             if (knob) {
@@ -1663,6 +1656,7 @@ makePictureFrameFront(4, 3);       // mur avant droite
             halfD: boxD / 2,
             center: group.position.clone()
         };
+        window._cartonPosition = group.position.clone();
 
         console.log('📦 Carton avec image');
         return group;
@@ -1737,6 +1731,7 @@ makePictureFrameFront(4, 3);       // mur avant droite
             diskName: null,
             trayWorldPos: new THREE.Vector3(posX - 0.3, posY + 0.15, posZ)
         };
+        window._diskDrivePosition = group.position.clone();
 
         const start = new THREE.Vector3(posX - 0.35, posY + 0.05, posZ);
         const end = new THREE.Vector3(-7.0, 0.2, 7.6);
@@ -1874,6 +1869,7 @@ makePictureFrameFront(4, 3);       // mur avant droite
 
         if (!window._pedestalDrawers) window._pedestalDrawers = [];
         window._pedestalDrawers.push(drawerState);
+        window._pedestalPosition = group.position.clone();
 
         scene.add(group);
         console.log('🪑 Meuble à tiroir unique (pieds longs) créé');
@@ -2048,6 +2044,7 @@ makePictureFrameFront(4, 3);       // mur avant droite
         group.position.set(posX, posY, posZ);
         group.rotation.y = 0;
         scene.add(group);
+        window._greenBoardPosition = group.position.clone();
         console.log('🟩 Tableau vert avec enquete.PNG ajouté');
     })();
 
@@ -2088,14 +2085,9 @@ makePictureFrameFront(4, 3);       // mur avant droite
         window._disks = diskGroup.children;
         console.log('💾 GROSSES DISQUETTES placées à (200, 1.7, 5) !');
     }
-
-    function createFallbackDisks() {
-        createFloppyDisks();
-    }
     createFloppyDisks();
 
     // ─── INTERACTIONS ──────────────────────────────────────────────
-    // Télévision
     function setupTVInteractions() {
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -2193,7 +2185,6 @@ makePictureFrameFront(4, 3);       // mur avant droite
     }
     setupTVInteractions();
 
-    // Carton
     function setupCartonInteractions() {
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -2269,7 +2260,6 @@ makePictureFrameFront(4, 3);       // mur avant droite
     }
     setupCartonInteractions();
 
-    // Lecteur de disquettes
     function setupDriveInteractions() {
         const drive = window._diskDrive;
         if (!drive) return;
@@ -2334,7 +2324,6 @@ makePictureFrameFront(4, 3);       // mur avant droite
     }
     setupDriveInteractions();
 
-    // Meuble à tiroir
     function setupPedestalInteractions() {
         if (!window._pedestalDrawers) return;
 
@@ -2408,7 +2397,7 @@ makePictureFrameFront(4, 3);       // mur avant droite
     }
     setupPedestalInteractions();
 
-    // Disquettes (drag & drop)
+    // ─── DISK DRAG & DROP ──────────────────────────────────────────
     let draggedDisk = null;
     let dragOffset = new THREE.Vector3();
     let diskOriginalParent = null;
@@ -2582,192 +2571,216 @@ makePictureFrameFront(4, 3);       // mur avant droite
     }
     setupDiskInteractions();
 
-    // ─── PORTE EXTÉRIEURE (monologue) ────────────────────────────
-    const raycasterDoor = new THREE.Raycaster();
-    const mouseDoor = new THREE.Vector2();
-    let hoverDoor = false;
-    let doorHighlighted = false;
+    // ─── PORTE EXTÉRIEURE – INTERACTION (sans redirection) ──────────────
+    function setupDoorInteraction() {
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let doorHover = false;
 
-    function updateDoorInteraction(event) {
-        const rect = canvas.getBoundingClientRect();
-        mouseDoor.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouseDoor.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycasterDoor.setFromCamera(mouseDoor, camera);
-        const pivot = window._doorPivot;
-        if (!pivot) return;
-        const doorGroup = window._doorGroup;
-        const meshes = [];
-        doorGroup.children.forEach(child => {
-            if (child.isMesh && (child === window._doorMesh || child.userData.isClickArea)) {
-                meshes.push(child);
+        canvas.addEventListener('mousemove', function(event) {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const pivot = window._doorPivot;
+            if (!pivot) return;
+            const doorGroup = window._doorGroup;
+            const meshes = [];
+            doorGroup.children.forEach(child => {
+                if (child.isMesh && (child === window._doorMesh || child.userData.isClickArea)) {
+                    meshes.push(child);
+                }
+            });
+            const intersects = raycaster.intersectObjects(meshes);
+            if (intersects.length > 0) {
+                canvas.style.cursor = 'pointer';
+                if (!doorHover) {
+                    window._doorMesh.material = mDoorHighlight;
+                    doorHover = true;
+                }
+            } else {
+                canvas.style.cursor = 'default';
+                if (doorHover) {
+                    window._doorMesh.material = mDoor;
+                    doorHover = false;
+                }
             }
         });
-        const intersects = raycasterDoor.intersectObjects(meshes);
-        if (intersects.length > 0) {
-            canvas.style.cursor = 'pointer';
-            if (!doorHighlighted && !window._doorOpen) {
-                window._doorMesh.material = mDoorHighlight;
-                doorHighlighted = true;
+
+        canvas.addEventListener('click', function(event) {
+            if (!doorHover) return;
+            const pivot = window._doorPivot;
+            if (!pivot || window._doorAnimating) return;
+
+            // Si déjà ouverte, on ne fait rien (ou on pourrait refermer, mais on laisse ouvert)
+            if (window._doorOpen) return;
+
+            // Ouvrir la porte
+            window._doorOpen = true;
+            window._doorData.isOpen = true;   // ← crucial pour les collisions
+            window._doorAnimating = true;
+            const startAngle = pivot.rotation.y;
+            const targetAngle = Math.PI / 2;
+            const duration = 600;
+            const startTime = performance.now();
+
+            function animateDoor(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const angle = startAngle + (targetAngle - startAngle) * eased;
+                pivot.rotation.y = angle;
+                if (progress < 1) {
+                    requestAnimationFrame(animateDoor);
+                } else {
+                    pivot.rotation.y = targetAngle;
+                    window._doorAnimating = false;
+                    // ← NE PAS REDIRIGER ICI
+                }
             }
-            hoverDoor = true;
-        } else {
-            if (doorHighlighted) {
-                window._doorMesh.material = mDoor;
-                doorHighlighted = false;
-            }
-            hoverDoor = false;
-        }
+            requestAnimationFrame(animateDoor);
+        });
     }
-    canvas.addEventListener('mousemove', updateDoorInteraction);
+    setupDoorInteraction();
 
-    canvas.addEventListener('click', function(event) {
-        if (hoverDoor) {
-            window._doorOpen = false;
-            window._doorAnimating = false;
-            showMonologue();
-        }
-    });
+    // ─── MONOLOGUES CONTEXTUELS (optionnels) ──────────────────────
+    let monologueData = null;
+    let lastMonologueTime = 0;
+    const monologueCooldown = 5000;
+    let currentMonologueZone = null;
 
-    // ─── MONOLOGUE ────────────────────────────────────────────────
-    function showMonologue() {
+    function loadMonologueData() {
+        const url = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? '/projet/Illusion/monologues.json'
+            : 'monologues.json';
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
+            .then(data => {
+                monologueData = data;
+                console.log('📜 Monologues chargés :', Object.keys(monologueData).length, 'zones');
+            })
+            .catch(err => {
+                console.warn('⚠️ Échec du chargement des monologues, utilisation de données par défaut.', err);
+                monologueData = {
+                    "bed": [
+                        "Ce lit semble confortable...",
+                        "Un endroit pour se reposer.",
+                        "Les rêves m'attendent ici."
+                    ],
+                    "bookshelf": [
+                        "Des livres anciens...",
+                        "La connaissance est dans ces pages.",
+                        "Je me sens attiré par cette étagère."
+                    ],
+                    "tv": [
+                        "Un vieux téléviseur...",
+                        "Les images dansent sur l'écran.",
+                        "Que de souvenirs."
+                    ],
+                    "greenboard": [
+                        "Un tableau vert avec une enquête...",
+                        "Des indices sont écrits ici.",
+                        "Je devrais regarder de plus près."
+                    ],
+                    "carton": [
+                        "Un carton avec une note.",
+                        "Que cache ce carton ?",
+                        "Il y a quelque chose d'écrit."
+                    ]
+                };
+                console.log('📜 Utilisation des monologues par défaut.');
+            });
+    }
+    loadMonologueData();
+
+    const zones = [
+        { id: 'bed', position: window._bedPosition || new THREE.Vector3(-7, 0, 0.8), radius: 2.5 },
+        { id: 'bookshelf', position: window._bookshelfPosition || new THREE.Vector3(7.7, 0, 2), radius: 2.5 },
+        { id: 'tv', position: window._tvPosition || new THREE.Vector3(-7, 0, 7.2), radius: 2.5 },
+        { id: 'greenboard', position: window._greenBoardPosition || new THREE.Vector3(1, 0, 0), radius: 2.5 },
+        { id: 'carton', position: window._cartonPosition || new THREE.Vector3(-5, 0.35, 7), radius: 2.0 },
+        { id: 'diskdrive', position: window._diskDrivePosition || new THREE.Vector3(-6.88, 0, 5.29), radius: 2.0 },
+        { id: 'pedestal', position: window._pedestalPosition || new THREE.Vector3(-6.88, 0, 5.29), radius: 2.0 },
+    ];
+
+    function showContextualMonologue(zoneId) {
+        if (!monologueData) return;
+        const texts = monologueData[zoneId];
+        if (!texts || texts.length === 0) return;
+        const now = performance.now();
+        if (now - lastMonologueTime < monologueCooldown) return;
+        lastMonologueTime = now;
+
+        const index = Math.floor(Math.random() * texts.length);
+        const text = texts[index];
+
         const container = document.createElement('div');
-        container.id = 'monologueContainer';
+        container.id = 'contextMonologue';
         container.style.cssText = `
-            position: fixed; bottom: 100px; left: 40px; right: 40px;
-            max-width: 580px; z-index: 1000; font-family: 'Georgia', serif;
-            color: rgba(255, 255, 255, 0.92); pointer-events: none;
-            user-select: none; opacity: 0; transition: opacity 0.8s ease;
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 80%;
+            background: rgba(0, 0, 0, 0.75);
+            color: #f0e8d0;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-family: 'Georgia', serif;
+            font-size: 18px;
+            line-height: 1.6;
+            text-align: center;
+            backdrop-filter: blur(6px);
+            border: 1px solid #6a5a3a;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+            z-index: 999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.6s ease;
         `;
-
-        const textBox = document.createElement('div');
-        textBox.id = 'monologueText';
-        textBox.style.cssText = `
-            font-size: 20px; line-height: 1.9; letter-spacing: 0.4px;
-            color: rgba(255, 255, 255, 0.88); text-shadow: 0 2px 30px rgba(0, 0, 0, 0.8);
-            min-height: 70px; padding: 6px 0; white-space: pre-wrap;
-            word-break: break-word; font-weight: 300; pointer-events: none;
-        `;
-        container.appendChild(textBox);
-
-        const btnContainer = document.createElement('div');
-        btnContainer.id = 'monologueBtns';
-        btnContainer.style.cssText = `
-            display: none; flex-direction: column; gap: 10px;
-            margin-top: 22px; pointer-events: auto; align-items: flex-start;
-        `;
-
-        const yesBtn = document.createElement('button');
-        yesBtn.textContent = 'Yes';
-        yesBtn.style.cssText = `
-            background: none; border: none; color: rgba(255, 255, 255, 0.5);
-            padding: 4px 0; font-size: 18px; font-family: 'Georgia', serif;
-            cursor: pointer; transition: all 0.4s ease; letter-spacing: 0.8px;
-            font-weight: 300; pointer-events: auto; text-shadow: 0 2px 20px rgba(0,0,0,0.6);
-        `;
-        yesBtn.onmouseover = () => {
-            yesBtn.style.color = 'rgba(255, 120, 120, 0.9)';
-            yesBtn.style.transform = 'translateX(6px)';
-        };
-        yesBtn.onmouseout = () => {
-            yesBtn.style.color = 'rgba(255, 255, 255, 0.5)';
-            yesBtn.style.transform = 'translateX(0)';
-        };
-        yesBtn.onclick = () => {
-            showResponse('So... you will join the eternal night.', true);
-        };
-
-        const noBtn = document.createElement('button');
-        noBtn.textContent = 'No';
-        noBtn.style.cssText = `
-            background: none; border: none; color: rgba(255, 255, 255, 0.5);
-            padding: 4px 0; font-size: 18px; font-family: 'Georgia', serif;
-            cursor: pointer; transition: all 0.4s ease; letter-spacing: 0.8px;
-            font-weight: 300; pointer-events: auto; text-shadow: 0 2px 20px rgba(0,0,0,0.6);
-        `;
-        noBtn.onmouseover = () => {
-            noBtn.style.color = 'rgba(120, 180, 255, 0.9)';
-            noBtn.style.transform = 'translateX(6px)';
-        };
-        noBtn.onmouseout = () => {
-            noBtn.style.color = 'rgba(255, 255, 255, 0.5)';
-            noBtn.style.transform = 'translateX(0)';
-        };
-        noBtn.onclick = () => {
-            showResponse('Staying in this illusion won\'t bring you peace.', false);
-        };
-
-        btnContainer.appendChild(yesBtn);
-        btnContainer.appendChild(noBtn);
-        container.appendChild(btnContainer);
+        container.textContent = text;
         document.body.appendChild(container);
 
-        function typeText(text, callback) {
-            const el = document.getElementById('monologueText');
-            el.textContent = '';
-            let index = 0;
-            const speed = 35;
-
-            function typeChar() {
-                if (index < text.length) {
-                    el.textContent += text.charAt(index);
-                    index++;
-                    setTimeout(typeChar, speed);
-                } else if (callback) {
-                    callback();
-                }
-            }
-            typeChar();
-        }
-
-        function showResponse(text, redirect) {
-            const textEl = document.getElementById('monologueText');
-            const btns = document.getElementById('monologueBtns');
-            btns.style.display = 'none';
-            textEl.textContent = '';
-            let index = 0;
-            const speed = 35;
-
-            function typeResponse() {
-                if (index < text.length) {
-                    textEl.textContent += text.charAt(index);
-                    index++;
-                    setTimeout(typeResponse, speed);
-                } else if (redirect) {
-                    setTimeout(() => {
-                        window.location.href = 'https://pioupioucoder.github.io/EternalNight/';
-                    }, 2200);
-                } else {
-                    setTimeout(() => {
-                        const c = document.getElementById('monologueContainer');
-                        if (c) {
-                            c.style.opacity = '0';
-                            setTimeout(() => {
-                                c.remove();
-                                window._doorOpen = false;
-                                window._doorAnimating = false;
-                            }, 800);
-                        }
-                    }, 3000);
-                }
-            }
-            typeResponse();
-        }
+        requestAnimationFrame(() => {
+            container.style.opacity = '1';
+        });
 
         setTimeout(() => {
-            const c = document.getElementById('monologueContainer');
-            if (c) c.style.opacity = '1';
-            typeText('Do you wish to leave this illusion?', () => {
-                const btns = document.getElementById('monologueBtns');
-                btns.style.display = 'flex';
-                btns.style.opacity = '0';
-                setTimeout(() => {
-                    btns.style.transition = 'opacity 0.8s ease';
-                    btns.style.opacity = '1';
-                }, 100);
-            });
-        }, 400);
+            container.style.opacity = '0';
+            setTimeout(() => {
+                if (container.parentNode) container.remove();
+            }, 600);
+        }, 4000);
     }
 
-    // ─── RETOURNER UN GROUPE VIDE ────────────────────────────────
-    return new THREE.Group();
+    function updateMonologue(cameraPos) {
+        if (!monologueData) return;
+        let zoneFound = null;
+        for (let zone of zones) {
+            const dx = cameraPos.x - zone.position.x;
+            const dz = cameraPos.z - zone.position.z;
+            const dist = Math.sqrt(dx*dx + dz*dz);
+            if (dist < zone.radius) {
+                zoneFound = zone.id;
+                break;
+            }
+        }
+        if (zoneFound && zoneFound !== currentMonologueZone) {
+            currentMonologueZone = zoneFound;
+            showContextualMonologue(zoneFound);
+        } else if (!zoneFound) {
+            currentMonologueZone = null;
+        }
+    }
+
+    // ─── RETOUR ──────────────────────────────────────────────────
+    const group = new THREE.Group();
+    group.update = function(cameraPos, dt, time) {
+        updateMonologue(cameraPos);
+    };
+    return group;
 }

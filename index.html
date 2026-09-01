@@ -401,21 +401,50 @@
     const margin = 0.3;
     const xMin = 192.2, xMax = 207.8;
     const zMin = -7.8, zMax = 7.8;
-    const doorXMin = 199.4, doorXMax = 200.6;
 
-    // Murs extérieurs
+    const doorData = window._doorData;
+    if (!doorData) return pos;
+
+    const doorXAbs = 200 + doorData.localX;   // 206.2
+    const doorHalf = doorData.halfWidth;      // 0.6
+    const doorIsOpen = doorData.isOpen;
+
+    // ─── SI ON EST DEHORS (Z > 7.8) ──────────────────────────
+    // On désactive TOUTES les collisions de la maison
+    if (pos.z > zMax) {
+        // On ne fait RIEN pour les murs de la maison.
+        // Juste des limites extrêmes pour éviter de s'envoler.
+        if (pos.x < -200) pos.x = -200;
+        if (pos.x > 400) pos.x = 400;
+        if (pos.z > 400) pos.z = 400;
+        return pos; // <- SORTIE IMMÉDIATE
+    }
+
+    // ─── ON EST À L'INTÉRIEUR (Z ≤ 7.8) ──────────────────────
+    // Toutes les collisions de la maison sont actives.
+
+    // Mur arrière (Z min)
+    if (pos.z < zMin) pos.z = zMin;
+
+    // Mur intérieur (Z=0)
+    if (pos.z > -margin && pos.z < margin) {
+        if (prevPos.z <= 0) pos.z = -margin;
+        else pos.z = margin;
+    }
+
+    // Murs latéraux (X min/max)
     if (pos.x < xMin) pos.x = xMin;
     if (pos.x > xMax) pos.x = xMax;
-    if (pos.z < zMin) pos.z = zMin;
-    if (pos.z > zMax) pos.z = zMax;
 
-    // Mur central (sauf porte)
-    if (pos.z > -margin && pos.z < margin) {
-        if (pos.x < doorXMin || pos.x > doorXMax) {
-            if (prevPos.z < 0) pos.z = -margin;
-            else pos.z = margin;
+    // Mur avant (Z max) – sauf porte ouverte
+    const inDoorX = pos.x > doorXAbs - doorHalf - 0.5 && pos.x < doorXAbs + doorHalf + 0.5;
+    if (pos.z > zMax) {
+        if (!(doorIsOpen && inDoorX)) {
+            if (prevPos.z <= zMax) pos.z = zMax - margin;
+            else pos.z = zMax + margin;
         }
     }
+
     return pos;
 }
 function loop(ts) {
