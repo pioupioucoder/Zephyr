@@ -1,4 +1,4 @@
-// illusion.js – version finale avec 3 grands livres debout, réalistes, sur l'étagère
+// illusion.js – image darkwall.png sur les murs (fond transparent)
 import * as THREE from 'three';
 
 export function buildIllusionWorld(scene, camera, canvas) {
@@ -96,8 +96,71 @@ export function buildIllusionWorld(scene, camera, canvas) {
     }, 64);
     woodTex.repeat.set(4, 4);
 
+    // ─── FONCTION POUR LES CHEMINS D'IMAGES ──────────────────────
+    function getImagePath(filename) {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return '/projet/Illusion/images/' + filename;
+        } else {
+            return 'images/' + filename;
+        }
+    }
+
+    // ─── TEXTURE D'HORREUR (image darkwall.png sur fond noir) ────
+    function createHorrorTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+
+        // Fond noir (transparent pour l'émission)
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(3, 3); // répète pour couvrir tout le mur
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function() {
+            // Effacer en noir
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 10 occurrences aléatoires
+            for (let i = 0; i < 10; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const scale = 0.3 + Math.random() * 0.8;
+                const angle = Math.random() * Math.PI * 2;
+                const w = img.width * scale;
+                const h = img.height * scale;
+
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+                if (Math.random() > 0.5) ctx.scale(-1, 1);
+                ctx.drawImage(img, -w/2, -h/2, w, h);
+                ctx.restore();
+            }
+
+            tex.needsUpdate = true;
+        };
+        img.src = getImagePath('darkwall.png');
+
+        return tex;
+    }
+
+    const horrorTex = createHorrorTexture();
+
     // ─── MATÉRIAUX ──────────────────────────────────────────────────
-    const mWall = new THREE.MeshLambertMaterial({ map: stoneTex, color: 0xddd0b8 });
+    const mWall = new THREE.MeshStandardMaterial({
+        map: stoneTex,
+        color: 0xddd0b8,
+        roughness: 0.6,
+        metalness: 0.1
+    });
     const mFloor = new THREE.MeshLambertMaterial({ map: floorTex, color: 0x6a5848 });
     const mWood = new THREE.MeshLambertMaterial({ map: woodTex, color: 0x7a5a38 });
     const mGlass = new THREE.MeshLambertMaterial({ color: 0x88bbdd, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
@@ -309,7 +372,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
             transparent: true,
             opacity: 0.9
         });
-        // On allume la lampe par défaut
         bulbMat.color.setHex(cfg.color);
         bulbMat.emissive.setHex(cfg.color);
         bulbMat.emissiveIntensity = 0.8;
@@ -321,7 +383,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
         light.position.copy(cfg.position);
         light.position.y -= 0.15;
-        light.intensity = cfg.intensity; // allumée
+        light.intensity = cfg.intensity;
         scene.add(light);
 
         const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
@@ -331,7 +393,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
 
         scene.add(group);
 
-        lampStates[cfg.id] = true; // par défaut ON
+        lampStates[cfg.id] = true;
         lampMeshes[cfg.id] = {
             light: light,
             bulbMat: bulbMat,
@@ -348,7 +410,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         switchGroup.add(plate);
 
         const btnMat = new THREE.MeshStandardMaterial({
-            color: 0x44aa44, // vert car allumé
+            color: 0x44aa44,
             emissive: 0x44aa44,
             emissiveIntensity: 0.2,
             roughness: 0.4
@@ -357,7 +419,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         btn.position.set(0, 0, 0.03);
         btn.userData.isSwitch = true;
         btn.userData.lampId = cfg.id;
-        btn.userData.defaultColor = 0x44aa44; // allumé
+        btn.userData.defaultColor = 0x44aa44;
         btn.userData.hoverColor = 0x88ff88;
         switchGroup.add(btn);
 
@@ -367,6 +429,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         switchMeshes.push(btn);
     });
 
+    // ─── INTERACTIONS DE L'INTERRUPTEUR ──────────────────────────
     function setupSwitchInteractions() {
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -405,33 +468,63 @@ export function buildIllusionWorld(scene, camera, canvas) {
         });
 
         canvas.addEventListener('click', (event) => {
-            if (!hoveredSwitch) return;
-            const lampId = hoveredSwitch.userData.lampId;
-            const isCurrentlyOn = lampStates[lampId];
-            lampStates[lampId] = !isCurrentlyOn;
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(switchMeshes);
+            if (intersects.length === 0) {
+                console.log('Aucun interrupteur détecté sous le curseur');
+                return;
+            }
+
+            const clickedSwitch = intersects[0].object;
+            if (!clickedSwitch.userData.isSwitch) return;
+
+            const lampId = clickedSwitch.userData.lampId;
+            lampStates[lampId] = !lampStates[lampId];
             const data = lampMeshes[lampId];
 
             if (lampStates[lampId]) {
+                // ALLUMÉ
+                console.log('💡 Lumière allumée');
+                mWall.emissiveMap = null;
+                mWall.emissive.setHex(0x000000);
+                mWall.emissiveIntensity = 0;
+                mWall.needsUpdate = true;
+
                 data.light.intensity = data.originalIntensity;
                 data.bulbMat.color.setHex(data.color);
                 data.bulbMat.emissive.setHex(data.color);
                 data.bulbMat.emissiveIntensity = 0.8;
-                hoveredSwitch.material.color.setHex(0x44aa44);
-                hoveredSwitch.userData.defaultColor = 0x44aa44;
-                hoveredSwitch.material.emissive.setHex(0x44aa44);
-                hoveredSwitch.material.emissiveIntensity = 0.2;
+
+                clickedSwitch.material.color.setHex(0x44aa44);
+                clickedSwitch.userData.defaultColor = 0x44aa44;
+                clickedSwitch.material.emissive.setHex(0x44aa44);
+                clickedSwitch.material.emissiveIntensity = 0.2;
             } else {
+                // ÉTEINT – on active l'horreur
+                console.log('💀 Lumière éteinte – horreur activée');
+                mWall.emissiveMap = horrorTex;
+                // On met du blanc pour que la couleur de la texture s'affiche
+                mWall.emissive.setHex(0xffffff);
+                mWall.emissiveIntensity = 1.5;
+                mWall.needsUpdate = true;
+
                 data.light.intensity = 0;
                 data.bulbMat.color.setHex(0x444444);
                 data.bulbMat.emissive.setHex(0x444444);
                 data.bulbMat.emissiveIntensity = 0;
-                hoveredSwitch.material.color.setHex(0xaa4444);
-                hoveredSwitch.userData.defaultColor = 0xaa4444;
-                hoveredSwitch.material.emissive.setHex(0x000000);
-                hoveredSwitch.material.emissiveIntensity = 0;
+
+                clickedSwitch.material.color.setHex(0xaa4444);
+                clickedSwitch.userData.defaultColor = 0xaa4444;
+                clickedSwitch.material.emissive.setHex(0x000000);
+                clickedSwitch.material.emissiveIntensity = 0;
             }
         });
     }
+
     setupSwitchInteractions();
 
     // ─── LIT ──────────────────────────────────────────────────────
@@ -554,23 +647,23 @@ export function buildIllusionWorld(scene, camera, canvas) {
             title: 'Your Words That I Never Heard',
             chapter: 'A Cold Morning',
             jsonUrl: 'Your_Words_That_I_Never_Heard.json',
-            color: 0x1a3a5a  // bleu nuit
+            color: 0x1a3a5a
         },
-        {
-            id: '1984',
-            title: '1984',
-            chapter: 'Big Brother',
-            jsonUrl: '1984.json',
-            color: 0x6a2a2a  // rouge sombre
-        },
-        {
-            id: 'le_petit_prince',
-            title: 'Le Petit Prince',
-            chapter: 'Le renard',
-            jsonUrl: 'le_petit_prince.json',
-            color: 0x3a6a3a  // vert forêt
-        }
-    ];
+         {
+    id: 'Throughout_The_Evening',
+    title: 'Throughout The Evening',
+    chapter: 'One-shot',
+    jsonUrl: 'Throughout_The_Evening.json',
+    color: 0x6a2a2a   // vous pouvez ajuster la couleur
+  },
+         {
+    id: 'The_Stars_For_The_Night_Sky',
+    title: 'The Stars for the Night Sky',
+    chapter: 'Poème',
+    jsonUrl: 'The_Stars_For_The_Night_Sky.json',
+    color: 0x3a6a3a   // vous pouvez ajuster
+  }
+];
 
     // ─── BIBLIOTHÈQUE ──────────────────────────────────────────
     function createBookshelf() {
@@ -631,7 +724,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         scene.add(group);
         window._bookshelfPosition = group.position.clone();
 
-        // Ajouter les livres sur la troisième étagère (index 2)
         const shelfIndex = 2;
         const shelfY = etageres[shelfIndex];
         const startX = -width / 2 + 0.12;
@@ -646,38 +738,32 @@ export function buildIllusionWorld(scene, camera, canvas) {
     function createBook3D(title, chapter, color) {
         const group = new THREE.Group();
 
-        // Dimensions d'un vrai livre (grand, bien proportionné)
-        const height = 0.25;      // hauteur (≈ 35 cm)
-        const width = 0.06;       // épaisseur du dos (visible de face)
-        const depth = 0.3;      // profondeur (de la couverture au dos)
+        const height = 0.25;
+        const width = 0.06;
+        const depth = 0.3;
 
-        // Texture de la couverture (titre + chapitre)
         function createCoverTexture(title, chapter) {
             const canvas = document.createElement('canvas');
             canvas.width = 512;
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
 
-            // Fond avec dégradé
             const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
             grad.addColorStop(0, '#5a3a2a');
             grad.addColorStop(1, '#2a1a10');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Bordure dorée
             ctx.strokeStyle = '#d4a840';
             ctx.lineWidth = 14;
             ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
 
-            // Titre (en haut)
             ctx.fillStyle = '#f5e6c8';
             ctx.font = 'bold 64px "Georgia", serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText(title, canvas.width/2, 70);
 
-            // Séparateur
             ctx.strokeStyle = '#d4a840';
             ctx.lineWidth = 4;
             ctx.beginPath();
@@ -685,7 +771,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
             ctx.lineTo(canvas.width - 60, 200);
             ctx.stroke();
 
-            // Chapitre
             ctx.fillStyle = '#e8d5b0';
             ctx.font = '42px "Georgia", serif';
             ctx.textBaseline = 'top';
@@ -694,7 +779,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
             ctx.fillStyle = '#f5e6c8';
             ctx.fillText(chapter, canvas.width/2, 290);
 
-            // Ornement
             ctx.fillStyle = '#d4a840';
             ctx.font = '70px serif';
             ctx.textBaseline = 'bottom';
@@ -711,7 +795,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
             side: THREE.DoubleSide
         });
 
-        // Corps du livre (pages)
         const pagesMat = new THREE.MeshStandardMaterial({
             color: 0xf5f0e8,
             roughness: 0.9
@@ -725,7 +808,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         pages.receiveShadow = true;
         group.add(pages);
 
-        // Couverture avant (face Z positive)
         const cover = new THREE.Mesh(
             new THREE.PlaneGeometry(width, height),
             coverMat
@@ -735,7 +817,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         cover.receiveShadow = true;
         group.add(cover);
 
-        // Dos (face Z négative) – couleur unie
         const spineMat = new THREE.MeshStandardMaterial({
             color: 0x3a2218,
             roughness: 0.8
@@ -750,7 +831,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         spine.receiveShadow = true;
         group.add(spine);
 
-        // Tranches (côtés X positif et négatif)
         const edgeMat = new THREE.MeshStandardMaterial({
             color: 0xe8dcc8,
             roughness: 0.8
@@ -775,7 +855,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         edgeNeg.receiveShadow = true;
         group.add(edgeNeg);
 
-        // Zone cliquable (invisible) devant la couverture
         const clickArea = new THREE.Mesh(
             new THREE.PlaneGeometry(width * 0.9, height * 0.9),
             new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide })
@@ -784,7 +863,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         clickArea.userData.isClickArea = true;
         group.add(clickArea);
 
-        // Stockage pour l'interaction
         group.userData.estLivre = true;
         group.userData.coverMat = coverMat;
         group.userData.originalColor = color;
@@ -796,22 +874,16 @@ export function buildIllusionWorld(scene, camera, canvas) {
     // ─── AJOUT D'UN LIVRE SUR L'ÉTAGÈRE ─────────────────────────
     function addBookToShelf(bookData, shelfGroup, shelfY, xPos) {
         const book = createBook3D(bookData.title, bookData.chapter, bookData.color);
-        // Le livre est créé avec sa face avant en Z+.
-        // L'étagère est tournée de Math.PI/2 : son Z local correspond au -X monde.
-        // Pour que la couverture pointe vers -X monde (vers la salle), on tourne de Math.PI.
         book.rotation.y = Math.PI;
         const height = 0.25;
-        // Positionner le livre debout sur l'étagère : y = shelfY + hauteur/2 + 0.01 (pour le décoller)
-        // z = -0.12 pour qu'il soit légèrement en avant du fond de l'étagère
         book.position.set(xPos, shelfY + height/2 + 0.01, -0.12);
         book.castShadow = true;
         book.receiveShadow = true;
 
-       book.userData.jsonUrl = bookData.jsonUrl;
-book.userData.title = bookData.title; // ← ajouter cette ligne
+        book.userData.jsonUrl = bookData.jsonUrl;
+        book.userData.title = bookData.title;
         shelfGroup.add(book);
 
-        // Interactions souris (survol + clic)
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let hover = false;
@@ -837,19 +909,19 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
             }
         }
 
-      function onMouseClick(event) {
-    const rect = canvas.getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(book.children, true);
-    if (intersects.length > 0) {
-        const url = book.userData.jsonUrl;
-        const title = book.userData.title || url.replace('.json', '');
-        openBookWithURL(url, title);
-        event.stopPropagation();
-    }
-}
+        function onMouseClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(book.children, true);
+            if (intersects.length > 0) {
+                const url = book.userData.jsonUrl;
+                const title = book.userData.title || url.replace('.json', '');
+                openBookWithURL(url, title);
+                event.stopPropagation();
+            }
+        }
 
         canvas.addEventListener('mousemove', onMouseMove);
         canvas.addEventListener('click', onMouseClick);
@@ -860,51 +932,50 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
     }
 
     // ─── OUVERTURE D'UN LIVRE (MODALE) ──────────────────────────
-  function openBookWithURL(url, title) {
-    let modal = document.getElementById('modalLivre');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'modalLivre';
-        modal.style.cssText = `
-            position: fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-            width:70%; max-width:800px; height:80%;
-            background: #f5f0eb; border-radius:12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding:20px; z-index:1000;
-            display:none; flex-direction:column; font-family: 'Georgia', serif;
+    function openBookWithURL(url, title) {
+        let modal = document.getElementById('modalLivre');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modalLivre';
+            modal.style.cssText = `
+                position: fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+                width:70%; max-width:800px; height:80%;
+                background: #f5f0eb; border-radius:12px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding:20px; z-index:1000;
+                display:none; flex-direction:column; font-family: 'Georgia', serif;
+            `;
+            document.body.appendChild(modal);
+        }
+        modal.innerHTML = '';
+        modal.style.display = 'flex';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            position: absolute; top:10px; right:20px; font-size:28px;
+            background:none; border:none; cursor:pointer; color:#333;
         `;
-        document.body.appendChild(modal);
+        closeBtn.onclick = () => { modal.style.display = 'none'; };
+        modal.appendChild(closeBtn);
+
+        const titre = document.createElement('h2');
+        titre.textContent = '📖 ' + (title || url.replace('.json', ''));
+        titre.style.marginTop = '0';
+        modal.appendChild(titre);
+
+        const contentDiv = document.createElement('div');
+        contentDiv.id = 'contenuLivre';
+        contentDiv.style.cssText = `
+            flex:1; overflow-y:auto; margin-top:10px;
+            display:flex; flex-direction:column; gap:15px;
+        `;
+        modal.appendChild(contentDiv);
+
+        chargerContenuLivre(contentDiv, url);
     }
-    modal.innerHTML = '';
-    modal.style.display = 'flex';
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.style.cssText = `
-        position: absolute; top:10px; right:20px; font-size:28px;
-        background:none; border:none; cursor:pointer; color:#333;
-    `;
-    closeBtn.onclick = () => { modal.style.display = 'none'; };
-    modal.appendChild(closeBtn);
-
-    const titre = document.createElement('h2');
-    titre.textContent = '📖 ' + (title || url.replace('.json', ''));
-    titre.style.marginTop = '0';
-    modal.appendChild(titre);
-
-    const contentDiv = document.createElement('div');
-    contentDiv.id = 'contenuLivre';
-    contentDiv.style.cssText = `
-        flex:1; overflow-y:auto; margin-top:10px;
-        display:flex; flex-direction:column; gap:15px;
-    `;
-    modal.appendChild(contentDiv);
-
-    chargerContenuLivre(contentDiv, url);
-}
 
     // ─── CHARGEMENT DU JSON AVEC PAGINATION AUTOMATIQUE ──────────
     function chargerContenuLivre(container, jsonUrl) {
-        // Construction du chemin selon l'environnement
         const hostname = window.location.hostname;
         let fullUrl;
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -919,28 +990,20 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
                 return response.json();
             })
             .then(data => {
-                // Vérifier la structure (chapitres ou pages)
                 if (data.chapitres) {
-                    // On traite les chapitres : on s'assure que chaque page est un tableau
                     data.chapitres = data.chapitres.map(chap => {
-                        // Si pages est un tableau, on le garde tel quel
-                        // Si pages est une chaîne unique, on la split par \n
                         if (Array.isArray(chap.pages)) {
-                            // Si une seule page contient des \n, on splitte
                             if (chap.pages.length === 1 && chap.pages[0].includes('\n')) {
                                 chap.pages = chap.pages[0].split('\n').filter(p => p.trim() !== '');
                             }
                         } else if (typeof chap.pages === 'string') {
-                            // Si pages est une chaîne, on la split par \n
                             chap.pages = chap.pages.split('\n').filter(p => p.trim() !== '');
                         }
                         return chap;
                     });
                     afficherLivre(container, data);
                 } else if (data.pages) {
-                    // Ancien format (pages simples) – on le convertit en chapitres
                     let pagesArray = data.pages.map(p => p.contenu || p);
-                    // Si une seule page contient des \n, on split
                     if (pagesArray.length === 1 && pagesArray[0].includes('\n')) {
                         pagesArray = pagesArray[0].split('\n').filter(p => p.trim() !== '');
                     }
@@ -971,215 +1034,203 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
 
     // ─── AFFICHAGE D'UN LIVRE (UNE SEULE PAGE À LA FOIS) ──────────
     function afficherLivre(container, bookData) {
-    const chapitres = bookData.chapitres;
-    if (!chapitres || chapitres.length === 0) {
-        container.innerHTML = '<p style="color:red;">Aucun chapitre trouvé.</p>';
-        return;
-    }
-    let currentChapterIndex = 0;
-    let currentPageIndex = 0; // index de la première page affichée (deux pages sont affichées)
+        const chapitres = bookData.chapitres;
+        if (!chapitres || chapitres.length === 0) {
+            container.innerHTML = '<p style="color:red;">Aucun chapitre trouvé.</p>';
+            return;
+        }
+        let currentChapterIndex = 0;
+        let currentPageIndex = 0;
 
-    function render() {
-        container.innerHTML = '';
-        container.style.cssText = `
-            display: flex; flex-direction: column; align-items: center;
-            background: #f5f0eb; border-radius: 12px; padding: 20px;
-            min-height: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-            font-family: 'Georgia', serif; position: relative;
-        `;
-
-        const chap = chapitres[currentChapterIndex];
-        const pages = chap.pages;
-        const totalPages = pages.length;
-
-        // Déterminer les indices des pages à afficher (gauche et droite)
-        let leftPageIndex = currentPageIndex;
-        let rightPageIndex = currentPageIndex + 1;
-        const hasRightPage = rightPageIndex < totalPages;
-
-        // En-tête
-        const header = document.createElement('div');
-        header.style.cssText = `
-            width: 100%; display: flex; justify-content: space-between;
-            align-items: center; margin-bottom: 15px; padding-bottom: 10px;
-            border-bottom: 1px solid #ddd; font-size: 14px; color: #6a5a4a;
-        `;
-        const chapTitle = document.createElement('span');
-        chapTitle.textContent = `📖 ${chap.titre}`;
-        chapTitle.style.fontWeight = 'bold';
-        const pageInfo = document.createElement('span');
-        pageInfo.textContent = `Pages ${leftPageIndex + 1}${hasRightPage ? ' – ' + (rightPageIndex + 1) : ''} / ${totalPages}`;
-        const chapNav = document.createElement('span');
-        chapNav.textContent = `Chapitre ${currentChapterIndex + 1} / ${chapitres.length}`;
-        chapNav.style.fontStyle = 'italic';
-        header.appendChild(chapTitle);
-        header.appendChild(pageInfo);
-        header.appendChild(chapNav);
-        container.appendChild(header);
-
-        // Corps : deux pages avec séparateur
-        const bookBody = document.createElement('div');
-        bookBody.style.cssText = `
-            display: flex; gap: 0; width: 100%; flex: 1;
-            min-height: 300px; background: #fcf9f6; border-radius: 8px;
-            padding: 15px; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
-            position: relative;
-        `;
-
-        // Page de gauche
-        const leftPageDiv = createPageElement(pages[leftPageIndex], leftPageIndex + 1);
-        leftPageDiv.style.flex = '1';
-        leftPageDiv.style.borderRight = 'none';
-        bookBody.appendChild(leftPageDiv);
-
-        // Séparateur (reliure)
-        const separator = document.createElement('div');
-        separator.style.cssText = `
-            width: 4px;
-            background: linear-gradient(to bottom, #d4c8b8, #b8a898, #d4c8b8);
-            flex-shrink: 0;
-            margin: 10px 0;
-            box-shadow: -2px 0 8px rgba(0,0,0,0.08), 2px 0 8px rgba(0,0,0,0.08);
-            border-radius: 2px;
-        `;
-        bookBody.appendChild(separator);
-
-        // Page de droite (si elle existe)
-        if (hasRightPage) {
-            const rightPageDiv = createPageElement(pages[rightPageIndex], rightPageIndex + 1);
-            rightPageDiv.style.flex = '1';
-            rightPageDiv.style.borderLeft = 'none';
-            bookBody.appendChild(rightPageDiv);
-        } else {
-            // Page vide (fin du chapitre)
-            const emptyPage = document.createElement('div');
-            emptyPage.style.cssText = `
-                flex: 1; display: flex; align-items: center; justify-content: center;
-                color: #aaa; font-style: italic; font-size: 16px; padding: 20px;
-                background: #fcf9f6; border-radius: 4px;
-                min-height: 200px;
+        function render() {
+            container.innerHTML = '';
+            container.style.cssText = `
+                display: flex; flex-direction: column; align-items: center;
+                background: #f5f0eb; border-radius: 12px; padding: 20px;
+                min-height: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                font-family: 'Georgia', serif; position: relative;
             `;
-            emptyPage.textContent = '✨ Fin du chapitre';
-            bookBody.appendChild(emptyPage);
-        }
 
-        container.appendChild(bookBody);
+            const chap = chapitres[currentChapterIndex];
+            const pages = chap.pages;
+            const totalPages = pages.length;
 
-        // Navigation
-        const nav = document.createElement('div');
-        nav.style.cssText = `
-            display: flex; gap: 15px; margin-top: 18px; align-items: center;
-            width: 100%; justify-content: center; flex-wrap: wrap;
-        `;
+            let leftPageIndex = currentPageIndex;
+            let rightPageIndex = currentPageIndex + 1;
+            const hasRightPage = rightPageIndex < totalPages;
 
-        const btnPrev = createNavButton('◀ Page précédente', () => {
-            if (currentPageIndex > 0) {
-                currentPageIndex -= 2;
-                if (currentPageIndex < 0) currentPageIndex = 0;
-                render();
-            } else if (currentChapterIndex > 0) {
-                currentChapterIndex--;
-                const prevChap = chapitres[currentChapterIndex];
-                // Aller à la dernière page paire du chapitre précédent
-                let lastPage = prevChap.pages.length - 1;
-                if (lastPage % 2 === 0) lastPage--; // s'assurer qu'on commence sur une page paire
-                if (lastPage < 0) lastPage = 0;
-                currentPageIndex = lastPage;
-                render();
+            const header = document.createElement('div');
+            header.style.cssText = `
+                width: 100%; display: flex; justify-content: space-between;
+                align-items: center; margin-bottom: 15px; padding-bottom: 10px;
+                border-bottom: 1px solid #ddd; font-size: 14px; color: #6a5a4a;
+            `;
+            const chapTitle = document.createElement('span');
+            chapTitle.textContent = `📖 ${chap.titre}`;
+            chapTitle.style.fontWeight = 'bold';
+            const pageInfo = document.createElement('span');
+            pageInfo.textContent = `Pages ${leftPageIndex + 1}${hasRightPage ? ' – ' + (rightPageIndex + 1) : ''} / ${totalPages}`;
+            const chapNav = document.createElement('span');
+            chapNav.textContent = `Chapitre ${currentChapterIndex + 1} / ${chapitres.length}`;
+            chapNav.style.fontStyle = 'italic';
+            header.appendChild(chapTitle);
+            header.appendChild(pageInfo);
+            header.appendChild(chapNav);
+            container.appendChild(header);
+
+            const bookBody = document.createElement('div');
+            bookBody.style.cssText = `
+                display: flex; gap: 0; width: 100%; flex: 1;
+                min-height: 300px; background: #fcf9f6; border-radius: 8px;
+                padding: 15px; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+                position: relative;
+            `;
+
+            const leftPageDiv = createPageElement(pages[leftPageIndex], leftPageIndex + 1);
+            leftPageDiv.style.flex = '1';
+            leftPageDiv.style.borderRight = 'none';
+            bookBody.appendChild(leftPageDiv);
+
+            const separator = document.createElement('div');
+            separator.style.cssText = `
+                width: 4px;
+                background: linear-gradient(to bottom, #d4c8b8, #b8a898, #d4c8b8);
+                flex-shrink: 0;
+                margin: 10px 0;
+                box-shadow: -2px 0 8px rgba(0,0,0,0.08), 2px 0 8px rgba(0,0,0,0.08);
+                border-radius: 2px;
+            `;
+            bookBody.appendChild(separator);
+
+            if (hasRightPage) {
+                const rightPageDiv = createPageElement(pages[rightPageIndex], rightPageIndex + 1);
+                rightPageDiv.style.flex = '1';
+                rightPageDiv.style.borderLeft = 'none';
+                bookBody.appendChild(rightPageDiv);
+            } else {
+                const emptyPage = document.createElement('div');
+                emptyPage.style.cssText = `
+                    flex: 1; display: flex; align-items: center; justify-content: center;
+                    color: #aaa; font-style: italic; font-size: 16px; padding: 20px;
+                    background: #fcf9f6; border-radius: 4px;
+                    min-height: 200px;
+                `;
+                emptyPage.textContent = '✨ Fin du chapitre';
+                bookBody.appendChild(emptyPage);
             }
-        }, currentPageIndex > 0 || currentChapterIndex > 0);
 
-        const btnNext = createNavButton('Page suivante ▶', () => {
-            if (hasRightPage && rightPageIndex < totalPages - 1) {
-                currentPageIndex += 2;
-                render();
-            } else if (hasRightPage && rightPageIndex === totalPages - 1) {
-                // On est à la dernière page de ce chapitre
-                if (currentChapterIndex < chapitres.length - 1) {
-                    currentChapterIndex++;
-                    currentPageIndex = 0;
+            container.appendChild(bookBody);
+
+            const nav = document.createElement('div');
+            nav.style.cssText = `
+                display: flex; gap: 15px; margin-top: 18px; align-items: center;
+                width: 100%; justify-content: center; flex-wrap: wrap;
+            `;
+
+            const btnPrev = createNavButton('◀ Page précédente', () => {
+                if (currentPageIndex > 0) {
+                    currentPageIndex -= 2;
+                    if (currentPageIndex < 0) currentPageIndex = 0;
+                    render();
+                } else if (currentChapterIndex > 0) {
+                    currentChapterIndex--;
+                    const prevChap = chapitres[currentChapterIndex];
+                    let lastPage = prevChap.pages.length - 1;
+                    if (lastPage % 2 === 0) lastPage--;
+                    if (lastPage < 0) lastPage = 0;
+                    currentPageIndex = lastPage;
                     render();
                 }
-            } else if (!hasRightPage) {
-                // Page unique, passer au chapitre suivant
-                if (currentChapterIndex < chapitres.length - 1) {
-                    currentChapterIndex++;
-                    currentPageIndex = 0;
+            }, currentPageIndex > 0 || currentChapterIndex > 0);
+
+            const btnNext = createNavButton('Page suivante ▶', () => {
+                if (hasRightPage && rightPageIndex < totalPages - 1) {
+                    currentPageIndex += 2;
                     render();
+                } else if (hasRightPage && rightPageIndex === totalPages - 1) {
+                    if (currentChapterIndex < chapitres.length - 1) {
+                        currentChapterIndex++;
+                        currentPageIndex = 0;
+                        render();
+                    }
+                } else if (!hasRightPage) {
+                    if (currentChapterIndex < chapitres.length - 1) {
+                        currentChapterIndex++;
+                        currentPageIndex = 0;
+                        render();
+                    }
                 }
-            }
-        }, currentPageIndex < totalPages - 1 || currentChapterIndex < chapitres.length - 1);
+            }, currentPageIndex < totalPages - 1 || currentChapterIndex < chapitres.length - 1);
 
-        const progress = document.createElement('span');
-        progress.textContent = `Pages ${leftPageIndex + 1}${hasRightPage ? ' – ' + (rightPageIndex + 1) : ''} / ${totalPages} (Chap. ${currentChapterIndex + 1})`;
-        progress.style.cssText = `
-            font-size: 13px; color: #8a7a6a; padding: 4px 12px;
-            background: #ede8e0; border-radius: 20px;
-        `;
+            const progress = document.createElement('span');
+            progress.textContent = `Pages ${leftPageIndex + 1}${hasRightPage ? ' – ' + (rightPageIndex + 1) : ''} / ${totalPages} (Chap. ${currentChapterIndex + 1})`;
+            progress.style.cssText = `
+                font-size: 13px; color: #8a7a6a; padding: 4px 12px;
+                background: #ede8e0; border-radius: 20px;
+            `;
 
-        nav.appendChild(btnPrev);
-        nav.appendChild(progress);
-        nav.appendChild(btnNext);
-        container.appendChild(nav);
-    }
-
-    function createPageElement(text, pageNum) {
-        const div = document.createElement('div');
-        div.style.cssText = `
-            flex: 1; padding: 20px 24px; background: #fcf9f6; border-radius: 4px;
-            line-height: 2; font-size: 16px; color: #2c2c2c; min-height: 200px;
-            max-height: 400px; overflow-y: auto; border: 1px solid #ede8e0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;
-            margin: 4px;
-        `;
-        const num = document.createElement('span');
-        num.textContent = pageNum;
-        num.style.cssText = `
-            position: absolute; bottom: 8px; right: 12px; font-size: 12px;
-            color: #d0c8b8; font-style: italic;
-        `;
-        div.appendChild(num);
-        const content = document.createElement('div');
-        content.textContent = text;
-        content.style.cssText = `
-            white-space: pre-wrap; word-break: break-word;
-            font-family: 'Georgia', serif; font-size: 16px; line-height: 1.9;
-            color: #2c2c2c; min-height: 160px;
-        `;
-        div.appendChild(content);
-        // Lignes de cahier
-        const lines = document.createElement('div');
-        lines.style.cssText = `
-            position: absolute; top: 0; left: 20px; right: 20px; bottom: 0;
-            pointer-events: none; opacity: 0.08;
-            background: repeating-linear-gradient(to bottom, transparent, transparent 28px, #b8a898 28px, #b8a898 29px);
-        `;
-        div.appendChild(lines);
-        return div;
-    }
-
-    function createNavButton(label, onClick, enabled) {
-        const btn = document.createElement('button');
-        btn.textContent = label;
-        btn.style.cssText = `
-            padding: 8px 18px; border: none; border-radius: 24px;
-            background: ${enabled ? '#8a7a6a' : '#ccc'};
-            color: white; font-family: 'Georgia', serif; font-size: 14px;
-            cursor: ${enabled ? 'pointer' : 'default'}; transition: 0.2s;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        `;
-        if (enabled) {
-            btn.onmouseover = () => { btn.style.background = '#6a5a4a'; };
-            btn.onmouseout = () => { btn.style.background = '#8a7a6a'; };
-            btn.onclick = onClick;
-        } else {
-            btn.style.opacity = '0.5';
+            nav.appendChild(btnPrev);
+            nav.appendChild(progress);
+            nav.appendChild(btnNext);
+            container.appendChild(nav);
         }
-        return btn;
-    }
 
-    render();
-}
+        function createPageElement(text, pageNum) {
+            const div = document.createElement('div');
+            div.style.cssText = `
+                flex: 1; padding: 20px 24px; background: #fcf9f6; border-radius: 4px;
+                line-height: 2; font-size: 16px; color: #2c2c2c; min-height: 200px;
+                max-height: 400px; overflow-y: auto; border: 1px solid #ede8e0;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;
+                margin: 4px;
+            `;
+            const num = document.createElement('span');
+            num.textContent = pageNum;
+            num.style.cssText = `
+                position: absolute; bottom: 8px; right: 12px; font-size: 12px;
+                color: #d0c8b8; font-style: italic;
+            `;
+            div.appendChild(num);
+            const content = document.createElement('div');
+            content.textContent = text;
+            content.style.cssText = `
+                white-space: pre-wrap; word-break: break-word;
+                font-family: 'Georgia', serif; font-size: 16px; line-height: 1.9;
+                color: #2c2c2c; min-height: 160px;
+            `;
+            div.appendChild(content);
+            const lines = document.createElement('div');
+            lines.style.cssText = `
+                position: absolute; top: 0; left: 20px; right: 20px; bottom: 0;
+                pointer-events: none; opacity: 0.08;
+                background: repeating-linear-gradient(to bottom, transparent, transparent 28px, #b8a898 28px, #b8a898 29px);
+            `;
+            div.appendChild(lines);
+            return div;
+        }
+
+        function createNavButton(label, onClick, enabled) {
+            const btn = document.createElement('button');
+            btn.textContent = label;
+            btn.style.cssText = `
+                padding: 8px 18px; border: none; border-radius: 24px;
+                background: ${enabled ? '#8a7a6a' : '#ccc'};
+                color: white; font-family: 'Georgia', serif; font-size: 14px;
+                cursor: ${enabled ? 'pointer' : 'default'}; transition: 0.2s;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            `;
+            if (enabled) {
+                btn.onmouseover = () => { btn.style.background = '#6a5a4a'; };
+                btn.onmouseout = () => { btn.style.background = '#8a7a6a'; };
+                btn.onclick = onClick;
+            } else {
+                btn.style.opacity = '0.5';
+            }
+            return btn;
+        }
+
+        render();
+    }
 
     // ─── CRÉATION DE LA BIBLIOTHÈQUE ──────────────────────────────
     createBookshelf();
@@ -1327,15 +1378,6 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
         }
     }
 
-    function getImagePath(filename) {
-        const hostname = window.location.hostname;
-        if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return '/projet/Illusion/images/' + filename;
-        } else {
-            return 'images/' + filename;
-        }
-    }
-
     function createIconTexture(symbol) {
         const canvas2 = document.createElement('canvas');
         canvas2.width = 64;
@@ -1351,29 +1393,29 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
     }
 
     const DEFAULT_VIDEOS = [
-         "videos/Ladies and gentlemen, I finally put in effort shorts.mp4",
-  "videos/here's a break midst all the angst shorts.mp4",
-  "videos/Bungo Stray Dogs cosplays are  shorts.mp4",
-  "videos/DO NOT click on the related video unless you wanna be traumatized shorts.mp4",
-  "videos/it's not me if I don't experiment shorts.mp4",
-  "videos/SkkSoukoku cosplay compilation viralvideo.mp4",
-  "videos/It's june you guys know what that means shorts.mp4",
-  "videos/Fyolai will live on shorts.mp4",
-  "videos/BACK WITH THIS shorts.mp4",
-  "videos/I've had this idea for so long shorts.mp4",
-  "videos/2nd video in the series shorts.mp4",
-  "videos/DAZAI IS SO LUCKY OML shorts.mp4",
-  "videos/I hate this one shorts.mp4",
-  "videos/HERE'S YOUR DAILY DOSE OF SOUKOKU shorts.mp4",
-  "videos/It's june...you guys know what that means shorts.mp4",
-  "videos/Did anyone say Stormbringer angst shorts.mp4",
-  "videos/Finally a complete Dazai edit shorts.mp4",
-  "videos/Collaboration with dazaiiseverything shorts.mp4",
-  "videos/If you know , you know shorts.mp4",
-  "videos/love this one , actually shorts.mp4",
-  "videos/FANART ANALYSIS shorts.mp4",
-  "videos/THEY'RE KIDS TOO shorts.mp4",
-  "videos/kunizai is next shorts.mp4"
+        "videos/Ladies and gentlemen, I finally put in effort shorts.mp4",
+        "videos/here's a break midst all the angst shorts.mp4",
+        "videos/Bungo Stray Dogs cosplays are  shorts.mp4",
+        "videos/DO NOT click on the related video unless you wanna be traumatized shorts.mp4",
+        "videos/it's not me if I don't experiment shorts.mp4",
+        "videos/SkkSoukoku cosplay compilation viralvideo.mp4",
+        "videos/It's june you guys know what that means shorts.mp4",
+        "videos/Fyolai will live on shorts.mp4",
+        "videos/BACK WITH THIS shorts.mp4",
+        "videos/I've had this idea for so long shorts.mp4",
+        "videos/2nd video in the series shorts.mp4",
+        "videos/DAZAI IS SO LUCKY OML shorts.mp4",
+        "videos/I hate this one shorts.mp4",
+        "videos/HERE'S YOUR DAILY DOSE OF SOUKOKU shorts.mp4",
+        "videos/It's june...you guys know what that means shorts.mp4",
+        "videos/Did anyone say Stormbringer angst shorts.mp4",
+        "videos/Finally a complete Dazai edit shorts.mp4",
+        "videos/Collaboration with dazaiiseverything shorts.mp4",
+        "videos/If you know , you know shorts.mp4",
+        "videos/love this one , actually shorts.mp4",
+        "videos/FANART ANALYSIS shorts.mp4",
+        "videos/THEY'RE KIDS TOO shorts.mp4",
+        "videos/kunizai is next shorts.mp4"
     ];
 
     let videoList = [];
@@ -1547,23 +1589,20 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
                 });
         }
 
-      function prevVideo() {
-    // Si on est sur la première vidéo, on charge une nouvelle vidéo aléatoire
-    if (historyIndex <= 0) {
-        loadRandomVideo();
-        return;
-    }
-
-    // Sinon, on recule normalement dans l'historique
-    historyIndex--;
-    const fullPath = history[historyIndex];
-    video.src = fullPath;
-    video.load();
-    if (window._isOn) {
-        video.play().catch(() => {});
-    }
-    saveTVState();
-}
+        function prevVideo() {
+            if (historyIndex <= 0) {
+                loadRandomVideo();
+                return;
+            }
+            historyIndex--;
+            const fullPath = history[historyIndex];
+            video.src = fullPath;
+            video.load();
+            if (window._isOn) {
+                video.play().catch(() => {});
+            }
+            saveTVState();
+        }
 
         loadRandomVideo();
 
@@ -1760,6 +1799,8 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
         console.log('📺 Télévision ajoutée.');
     }
 
+    createVintageTV();
+
     // ─── CARTON AVEC DEUX RABATS ────────────────────────────────
     function createCardboardBox() {
         const group = new THREE.Group();
@@ -1937,6 +1978,8 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
         return group;
     }
 
+    createCardboardBox();
+
     // ─── MEUBLE À TIROIR ──────────────────────────────────────────────
     function createPedestalDrawer(config) {
         const {
@@ -2066,9 +2109,6 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
         return drawerState;
     }
 
-    // ─── CRÉATION DES OBJETS ──────────────────────────────────────
-    createVintageTV();
-    createCardboardBox();
     createPedestalDrawer({
         posX: -6.88,
         posY: 0.0,
