@@ -275,7 +275,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
     wallCollider.name = 'wallCollider';
     scene.add(wallCollider);
 
-    // ─── LAMPE MODERNE (allumée par défaut) ───────────────────────
+    // ─── LAMPE MODERNE – ALLUMÉE PAR DÉFAUT ──────────────────────
     const lampConfigs = [
         {
             id: 'right',
@@ -309,7 +309,8 @@ export function buildIllusionWorld(scene, camera, canvas) {
             transparent: true,
             opacity: 0.9
         });
-        bulbMat.color.setHex(cfg.color);  // Allumé par défaut
+        // On allume la lampe par défaut
+        bulbMat.color.setHex(cfg.color);
         bulbMat.emissive.setHex(cfg.color);
         bulbMat.emissiveIntensity = 0.8;
 
@@ -320,7 +321,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
         light.position.copy(cfg.position);
         light.position.y -= 0.15;
-        light.intensity = cfg.intensity;  // Allumé par défaut
+        light.intensity = cfg.intensity; // allumée
         scene.add(light);
 
         const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
@@ -330,7 +331,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
 
         scene.add(group);
 
-        lampStates[cfg.id] = true; // Allumé par défaut
+        lampStates[cfg.id] = true; // par défaut ON
         lampMeshes[cfg.id] = {
             light: light,
             bulbMat: bulbMat,
@@ -347,7 +348,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         switchGroup.add(plate);
 
         const btnMat = new THREE.MeshStandardMaterial({
-            color: 0x44aa44, // Vert (allumé)
+            color: 0x44aa44, // vert car allumé
             emissive: 0x44aa44,
             emissiveIntensity: 0.2,
             roughness: 0.4
@@ -356,7 +357,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         btn.position.set(0, 0, 0.03);
         btn.userData.isSwitch = true;
         btn.userData.lampId = cfg.id;
-        btn.userData.defaultColor = 0x44aa44;
+        btn.userData.defaultColor = 0x44aa44; // allumé
         btn.userData.hoverColor = 0x88ff88;
         switchGroup.add(btn);
 
@@ -391,7 +392,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
                     const isOn = lampStates[hoveredSwitch.userData.lampId];
                     const defaultColor = isOn ? 0x44aa44 : 0xaa4444;
                     hoveredSwitch.material.color.setHex(defaultColor);
-                    hoveredSwitch.material.emissive.setHex(defaultColor);
+                    hoveredSwitch.material.emissive.setHex(isOn ? 0x44aa44 : 0x000000);
                     hoveredSwitch.material.emissiveIntensity = isOn ? 0.2 : 0;
                 }
                 if (newHover) {
@@ -416,18 +417,18 @@ export function buildIllusionWorld(scene, camera, canvas) {
                 data.bulbMat.emissive.setHex(data.color);
                 data.bulbMat.emissiveIntensity = 0.8;
                 hoveredSwitch.material.color.setHex(0x44aa44);
+                hoveredSwitch.userData.defaultColor = 0x44aa44;
                 hoveredSwitch.material.emissive.setHex(0x44aa44);
                 hoveredSwitch.material.emissiveIntensity = 0.2;
-                hoveredSwitch.userData.defaultColor = 0x44aa44;
             } else {
                 data.light.intensity = 0;
                 data.bulbMat.color.setHex(0x444444);
                 data.bulbMat.emissive.setHex(0x444444);
                 data.bulbMat.emissiveIntensity = 0;
                 hoveredSwitch.material.color.setHex(0xaa4444);
+                hoveredSwitch.userData.defaultColor = 0xaa4444;
                 hoveredSwitch.material.emissive.setHex(0x000000);
                 hoveredSwitch.material.emissiveIntensity = 0;
-                hoveredSwitch.userData.defaultColor = 0xaa4444;
             }
         });
     }
@@ -648,7 +649,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         // Dimensions d'un vrai livre (grand, bien proportionné)
         const height = 0.25;      // hauteur (≈ 35 cm)
         const width = 0.06;       // épaisseur du dos (visible de face)
-        const depth = 0.3;        // profondeur (de la couverture au dos)
+        const depth = 0.3;      // profondeur (de la couverture au dos)
 
         // Texture de la couverture (titre + chapitre)
         function createCoverTexture(title, chapter) {
@@ -800,9 +801,9 @@ export function buildIllusionWorld(scene, camera, canvas) {
         // Pour que la couverture pointe vers -X monde (vers la salle), on tourne de Math.PI.
         book.rotation.y = Math.PI;
         const height = 0.25;
-        // Positionner le livre debout sur l'étagère : y = shelfY + hauteur/2
+        // Positionner le livre debout sur l'étagère : y = shelfY + hauteur/2 + 0.01 (pour le décoller)
         // z = -0.12 pour qu'il soit légèrement en avant du fond de l'étagère
-        book.position.set(xPos, shelfY + height/2 + 0.02, -0.12);
+        book.position.set(xPos, shelfY + height/2 + 0.01, -0.12);
         book.castShadow = true;
         book.receiveShadow = true;
 
@@ -899,7 +900,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         chargerContenuLivre(contentDiv, url);
     }
 
-    // ─── CHARGEMENT DU JSON (CHEMIN CORRIGÉ) ────────────────────
+    // ─── CHARGEMENT DU JSON AVEC PAGINATION AUTOMATIQUE ──────────
     function chargerContenuLivre(container, jsonUrl) {
         // Construction du chemin selon l'environnement
         const hostname = window.location.hostname;
@@ -918,12 +919,32 @@ export function buildIllusionWorld(scene, camera, canvas) {
             .then(data => {
                 // Vérifier la structure (chapitres ou pages)
                 if (data.chapitres) {
+                    // On traite les chapitres : on s'assure que chaque page est un tableau
+                    data.chapitres = data.chapitres.map(chap => {
+                        // Si pages est un tableau, on le garde tel quel
+                        // Si pages est une chaîne unique, on la split par \n
+                        if (Array.isArray(chap.pages)) {
+                            // Si une seule page contient des \n, on splitte
+                            if (chap.pages.length === 1 && chap.pages[0].includes('\n')) {
+                                chap.pages = chap.pages[0].split('\n').filter(p => p.trim() !== '');
+                            }
+                        } else if (typeof chap.pages === 'string') {
+                            // Si pages est une chaîne, on la split par \n
+                            chap.pages = chap.pages.split('\n').filter(p => p.trim() !== '');
+                        }
+                        return chap;
+                    });
                     afficherLivre(container, data);
                 } else if (data.pages) {
-                    // Convertir l'ancien format en chapitres
+                    // Ancien format (pages simples) – on le convertit en chapitres
+                    let pagesArray = data.pages.map(p => p.contenu || p);
+                    // Si une seule page contient des \n, on split
+                    if (pagesArray.length === 1 && pagesArray[0].includes('\n')) {
+                        pagesArray = pagesArray[0].split('\n').filter(p => p.trim() !== '');
+                    }
                     const chapitres = [{
                         titre: 'Contenu',
-                        pages: data.pages.map(p => p.contenu || p)
+                        pages: pagesArray
                     }];
                     afficherLivre(container, { chapitres });
                 } else {
@@ -946,7 +967,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
             });
     }
 
-    // ─── AFFICHAGE DU LIVRE (CHAPITRES + PAGES) ──────────────────
+    // ─── AFFICHAGE D'UN LIVRE (UNE SEULE PAGE À LA FOIS) ──────────
     function afficherLivre(container, bookData) {
         const chapitres = bookData.chapitres;
         if (!chapitres || chapitres.length === 0) {
@@ -989,10 +1010,10 @@ export function buildIllusionWorld(scene, camera, canvas) {
             header.appendChild(chapNav);
             container.appendChild(header);
 
-            // Corps : afficher la page courante
+            // Corps : une seule page
             const bookBody = document.createElement('div');
             bookBody.style.cssText = `
-                display: flex; gap: 20px; width: 100%; flex: 1;
+                display: flex; width: 100%; flex: 1;
                 min-height: 300px; background: #fcf9f6; border-radius: 8px;
                 padding: 15px; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
                 position: relative;
@@ -1100,7 +1121,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         render();
     }
 
-    // ─── CRÉATION DE LA BIBLIOTHÈQUE (appel) ─────────────────────
+    // ─── CRÉATION DE LA BIBLIOTHÈQUE ──────────────────────────────
     createBookshelf();
 
     // ─── CADRES AVEC IMAGES ──────────────────────────────────────
