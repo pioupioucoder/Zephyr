@@ -2560,36 +2560,39 @@ export function buildIllusionWorld(scene, camera, canvas) {
             }
         });
 
-        canvas.addEventListener('click', function(event) {
-            if (!doorHover) return;
-            const pivot = window._doorPivot;
-            if (!pivot || window._doorAnimating) return;
+       canvas.addEventListener('click', function(event) {
+    if (!doorHover) return;
+    const pivot = window._doorPivot;
+    if (!pivot || window._doorAnimating) return;
 
-            if (window._doorOpen) return;
+    // État actuel
+    const isOpen = window._doorOpen;
+    // Angle cible : 0 si fermé, PI/2 si ouvert
+    const targetAngle = isOpen ? 0 : Math.PI / 2;
+    // Inverser l'état
+    window._doorOpen = !isOpen;
+    window._doorData.isOpen = window._doorOpen;
+    window._doorAnimating = true;
 
-            window._doorOpen = true;
-            window._doorData.isOpen = true;
-            window._doorAnimating = true;
-            const startAngle = pivot.rotation.y;
-            const targetAngle = Math.PI / 2;
-            const duration = 600;
-            const startTime = performance.now();
+    const startAngle = pivot.rotation.y;
+    const duration = 600;
+    const startTime = performance.now();
 
-            function animateDoor(time) {
-                const elapsed = time - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const eased = 1 - Math.pow(1 - progress, 3);
-                const angle = startAngle + (targetAngle - startAngle) * eased;
-                pivot.rotation.y = angle;
-                if (progress < 1) {
-                    requestAnimationFrame(animateDoor);
-                } else {
-                    pivot.rotation.y = targetAngle;
-                    window._doorAnimating = false;
-                }
-            }
+    function animateDoor(time) {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const angle = startAngle + (targetAngle - startAngle) * eased;
+        pivot.rotation.y = angle;
+        if (progress < 1) {
             requestAnimationFrame(animateDoor);
-        });
+        } else {
+            pivot.rotation.y = targetAngle;
+            window._doorAnimating = false;
+        }
+    }
+    requestAnimationFrame(animateDoor);
+});
     }
     setupDoorInteraction();
 
