@@ -807,7 +807,8 @@ export function buildIllusionWorld(scene, camera, canvas) {
         book.castShadow = true;
         book.receiveShadow = true;
 
-        book.userData.jsonUrl = bookData.jsonUrl;
+       book.userData.jsonUrl = bookData.jsonUrl;
+book.userData.title = bookData.title; // ← ajouter cette ligne
         shelfGroup.add(book);
 
         // Interactions souris (survol + clic)
@@ -836,18 +837,19 @@ export function buildIllusionWorld(scene, camera, canvas) {
             }
         }
 
-        function onMouseClick(event) {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(book.children, true);
-            if (intersects.length > 0) {
-                const url = book.userData.jsonUrl;
-                openBookWithURL(url);
-                event.stopPropagation();
-            }
-        }
+      function onMouseClick(event) {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(book.children, true);
+    if (intersects.length > 0) {
+        const url = book.userData.jsonUrl;
+        const title = book.userData.title || url.replace('.json', '');
+        openBookWithURL(url, title);
+        event.stopPropagation();
+    }
+}
 
         canvas.addEventListener('mousemove', onMouseMove);
         canvas.addEventListener('click', onMouseClick);
@@ -858,47 +860,47 @@ export function buildIllusionWorld(scene, camera, canvas) {
     }
 
     // ─── OUVERTURE D'UN LIVRE (MODALE) ──────────────────────────
-    function openBookWithURL(url) {
-        let modal = document.getElementById('modalLivre');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'modalLivre';
-            modal.style.cssText = `
-                position: fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-                width:70%; max-width:800px; height:80%;
-                background: #f5f0eb; border-radius:12px;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding:20px; z-index:1000;
-                display:none; flex-direction:column; font-family: 'Georgia', serif;
-            `;
-            document.body.appendChild(modal);
-        }
-        modal.innerHTML = '';
-        modal.style.display = 'flex';
-
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '✕';
-        closeBtn.style.cssText = `
-            position: absolute; top:10px; right:20px; font-size:28px;
-            background:none; border:none; cursor:pointer; color:#333;
+  function openBookWithURL(url, title) {
+    let modal = document.getElementById('modalLivre');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modalLivre';
+        modal.style.cssText = `
+            position: fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+            width:70%; max-width:800px; height:80%;
+            background: #f5f0eb; border-radius:12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding:20px; z-index:1000;
+            display:none; flex-direction:column; font-family: 'Georgia', serif;
         `;
-        closeBtn.onclick = () => { modal.style.display = 'none'; };
-        modal.appendChild(closeBtn);
-
-        const titre = document.createElement('h2');
-        titre.textContent = '📖 ' + url.replace('.json', '');
-        titre.style.marginTop = '0';
-        modal.appendChild(titre);
-
-        const contentDiv = document.createElement('div');
-        contentDiv.id = 'contenuLivre';
-        contentDiv.style.cssText = `
-            flex:1; overflow-y:auto; margin-top:10px;
-            display:flex; flex-direction:column; gap:15px;
-        `;
-        modal.appendChild(contentDiv);
-
-        chargerContenuLivre(contentDiv, url);
+        document.body.appendChild(modal);
     }
+    modal.innerHTML = '';
+    modal.style.display = 'flex';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.cssText = `
+        position: absolute; top:10px; right:20px; font-size:28px;
+        background:none; border:none; cursor:pointer; color:#333;
+    `;
+    closeBtn.onclick = () => { modal.style.display = 'none'; };
+    modal.appendChild(closeBtn);
+
+    const titre = document.createElement('h2');
+    titre.textContent = '📖 ' + (title || url.replace('.json', ''));
+    titre.style.marginTop = '0';
+    modal.appendChild(titre);
+
+    const contentDiv = document.createElement('div');
+    contentDiv.id = 'contenuLivre';
+    contentDiv.style.cssText = `
+        flex:1; overflow-y:auto; margin-top:10px;
+        display:flex; flex-direction:column; gap:15px;
+    `;
+    modal.appendChild(contentDiv);
+
+    chargerContenuLivre(contentDiv, url);
+}
 
     // ─── CHARGEMENT DU JSON AVEC PAGINATION AUTOMATIQUE ──────────
     function chargerContenuLivre(container, jsonUrl) {
@@ -969,157 +971,215 @@ export function buildIllusionWorld(scene, camera, canvas) {
 
     // ─── AFFICHAGE D'UN LIVRE (UNE SEULE PAGE À LA FOIS) ──────────
     function afficherLivre(container, bookData) {
-        const chapitres = bookData.chapitres;
-        if (!chapitres || chapitres.length === 0) {
-            container.innerHTML = '<p style="color:red;">Aucun chapitre trouvé.</p>';
-            return;
+    const chapitres = bookData.chapitres;
+    if (!chapitres || chapitres.length === 0) {
+        container.innerHTML = '<p style="color:red;">Aucun chapitre trouvé.</p>';
+        return;
+    }
+    let currentChapterIndex = 0;
+    let currentPageIndex = 0; // index de la première page affichée (deux pages sont affichées)
+
+    function render() {
+        container.innerHTML = '';
+        container.style.cssText = `
+            display: flex; flex-direction: column; align-items: center;
+            background: #f5f0eb; border-radius: 12px; padding: 20px;
+            min-height: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            font-family: 'Georgia', serif; position: relative;
+        `;
+
+        const chap = chapitres[currentChapterIndex];
+        const pages = chap.pages;
+        const totalPages = pages.length;
+
+        // Déterminer les indices des pages à afficher (gauche et droite)
+        let leftPageIndex = currentPageIndex;
+        let rightPageIndex = currentPageIndex + 1;
+        const hasRightPage = rightPageIndex < totalPages;
+
+        // En-tête
+        const header = document.createElement('div');
+        header.style.cssText = `
+            width: 100%; display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 15px; padding-bottom: 10px;
+            border-bottom: 1px solid #ddd; font-size: 14px; color: #6a5a4a;
+        `;
+        const chapTitle = document.createElement('span');
+        chapTitle.textContent = `📖 ${chap.titre}`;
+        chapTitle.style.fontWeight = 'bold';
+        const pageInfo = document.createElement('span');
+        pageInfo.textContent = `Pages ${leftPageIndex + 1}${hasRightPage ? ' – ' + (rightPageIndex + 1) : ''} / ${totalPages}`;
+        const chapNav = document.createElement('span');
+        chapNav.textContent = `Chapitre ${currentChapterIndex + 1} / ${chapitres.length}`;
+        chapNav.style.fontStyle = 'italic';
+        header.appendChild(chapTitle);
+        header.appendChild(pageInfo);
+        header.appendChild(chapNav);
+        container.appendChild(header);
+
+        // Corps : deux pages avec séparateur
+        const bookBody = document.createElement('div');
+        bookBody.style.cssText = `
+            display: flex; gap: 0; width: 100%; flex: 1;
+            min-height: 300px; background: #fcf9f6; border-radius: 8px;
+            padding: 15px; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+            position: relative;
+        `;
+
+        // Page de gauche
+        const leftPageDiv = createPageElement(pages[leftPageIndex], leftPageIndex + 1);
+        leftPageDiv.style.flex = '1';
+        leftPageDiv.style.borderRight = 'none';
+        bookBody.appendChild(leftPageDiv);
+
+        // Séparateur (reliure)
+        const separator = document.createElement('div');
+        separator.style.cssText = `
+            width: 4px;
+            background: linear-gradient(to bottom, #d4c8b8, #b8a898, #d4c8b8);
+            flex-shrink: 0;
+            margin: 10px 0;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.08), 2px 0 8px rgba(0,0,0,0.08);
+            border-radius: 2px;
+        `;
+        bookBody.appendChild(separator);
+
+        // Page de droite (si elle existe)
+        if (hasRightPage) {
+            const rightPageDiv = createPageElement(pages[rightPageIndex], rightPageIndex + 1);
+            rightPageDiv.style.flex = '1';
+            rightPageDiv.style.borderLeft = 'none';
+            bookBody.appendChild(rightPageDiv);
+        } else {
+            // Page vide (fin du chapitre)
+            const emptyPage = document.createElement('div');
+            emptyPage.style.cssText = `
+                flex: 1; display: flex; align-items: center; justify-content: center;
+                color: #aaa; font-style: italic; font-size: 16px; padding: 20px;
+                background: #fcf9f6; border-radius: 4px;
+                min-height: 200px;
+            `;
+            emptyPage.textContent = '✨ Fin du chapitre';
+            bookBody.appendChild(emptyPage);
         }
-        let currentChapterIndex = 0;
-        let currentPageIndex = 0;
 
-        function render() {
-            container.innerHTML = '';
-            container.style.cssText = `
-                display: flex; flex-direction: column; align-items: center;
-                background: #f5f0eb; border-radius: 12px; padding: 20px;
-                min-height: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-                font-family: 'Georgia', serif; position: relative;
-            `;
+        container.appendChild(bookBody);
 
-            const chap = chapitres[currentChapterIndex];
-            const pages = chap.pages;
-            const totalPages = pages.length;
+        // Navigation
+        const nav = document.createElement('div');
+        nav.style.cssText = `
+            display: flex; gap: 15px; margin-top: 18px; align-items: center;
+            width: 100%; justify-content: center; flex-wrap: wrap;
+        `;
 
-            // En-tête
-            const header = document.createElement('div');
-            header.style.cssText = `
-                width: 100%; display: flex; justify-content: space-between;
-                align-items: center; margin-bottom: 15px; padding-bottom: 10px;
-                border-bottom: 1px solid #ddd; font-size: 14px; color: #6a5a4a;
-            `;
-            const chapTitle = document.createElement('span');
-            chapTitle.textContent = `📖 ${chap.titre}`;
-            chapTitle.style.fontWeight = 'bold';
-            const pageInfo = document.createElement('span');
-            pageInfo.textContent = `Page ${currentPageIndex + 1} / ${totalPages}`;
-            const chapNav = document.createElement('span');
-            chapNav.textContent = `Chapitre ${currentChapterIndex + 1} / ${chapitres.length}`;
-            chapNav.style.fontStyle = 'italic';
-            header.appendChild(chapTitle);
-            header.appendChild(pageInfo);
-            header.appendChild(chapNav);
-            container.appendChild(header);
+        const btnPrev = createNavButton('◀ Page précédente', () => {
+            if (currentPageIndex > 0) {
+                currentPageIndex -= 2;
+                if (currentPageIndex < 0) currentPageIndex = 0;
+                render();
+            } else if (currentChapterIndex > 0) {
+                currentChapterIndex--;
+                const prevChap = chapitres[currentChapterIndex];
+                // Aller à la dernière page paire du chapitre précédent
+                let lastPage = prevChap.pages.length - 1;
+                if (lastPage % 2 === 0) lastPage--; // s'assurer qu'on commence sur une page paire
+                if (lastPage < 0) lastPage = 0;
+                currentPageIndex = lastPage;
+                render();
+            }
+        }, currentPageIndex > 0 || currentChapterIndex > 0);
 
-            // Corps : une seule page
-            const bookBody = document.createElement('div');
-            bookBody.style.cssText = `
-                display: flex; width: 100%; flex: 1;
-                min-height: 300px; background: #fcf9f6; border-radius: 8px;
-                padding: 15px; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
-                position: relative;
-            `;
-            const pageDiv = createPageElement(pages[currentPageIndex], currentPageIndex + 1);
-            bookBody.appendChild(pageDiv);
-            container.appendChild(bookBody);
-
-            // Navigation
-            const nav = document.createElement('div');
-            nav.style.cssText = `
-                display: flex; gap: 15px; margin-top: 18px; align-items: center;
-                width: 100%; justify-content: center; flex-wrap: wrap;
-            `;
-
-            const btnPrevPage = createNavButton('◀ Page précédente', () => {
-                if (currentPageIndex > 0) {
-                    currentPageIndex--;
-                    render();
-                } else if (currentChapterIndex > 0) {
-                    currentChapterIndex--;
-                    const prevChap = chapitres[currentChapterIndex];
-                    currentPageIndex = prevChap.pages.length - 1;
-                    render();
-                }
-            }, currentPageIndex > 0 || currentChapterIndex > 0);
-
-            const btnNextPage = createNavButton('Page suivante ▶', () => {
-                if (currentPageIndex < totalPages - 1) {
-                    currentPageIndex++;
-                    render();
-                } else if (currentChapterIndex < chapitres.length - 1) {
+        const btnNext = createNavButton('Page suivante ▶', () => {
+            if (hasRightPage && rightPageIndex < totalPages - 1) {
+                currentPageIndex += 2;
+                render();
+            } else if (hasRightPage && rightPageIndex === totalPages - 1) {
+                // On est à la dernière page de ce chapitre
+                if (currentChapterIndex < chapitres.length - 1) {
                     currentChapterIndex++;
                     currentPageIndex = 0;
                     render();
                 }
-            }, currentPageIndex < totalPages - 1 || currentChapterIndex < chapitres.length - 1);
-
-            const progress = document.createElement('span');
-            progress.textContent = `Page ${currentPageIndex + 1} / ${totalPages} (Chap. ${currentChapterIndex + 1})`;
-            progress.style.cssText = `
-                font-size: 13px; color: #8a7a6a; padding: 4px 12px;
-                background: #ede8e0; border-radius: 20px;
-            `;
-
-            nav.appendChild(btnPrevPage);
-            nav.appendChild(progress);
-            nav.appendChild(btnNextPage);
-            container.appendChild(nav);
-        }
-
-        function createPageElement(text, pageNum) {
-            const div = document.createElement('div');
-            div.style.cssText = `
-                flex: 1; padding: 20px 24px; background: #fcf9f6; border-radius: 4px;
-                line-height: 2; font-size: 16px; color: #2c2c2c; min-height: 200px;
-                max-height: 400px; overflow-y: auto; border: 1px solid #ede8e0;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;
-            `;
-            const num = document.createElement('span');
-            num.textContent = pageNum;
-            num.style.cssText = `
-                position: absolute; bottom: 8px; right: 12px; font-size: 12px;
-                color: #d0c8b8; font-style: italic;
-            `;
-            div.appendChild(num);
-            const content = document.createElement('div');
-            content.textContent = text;
-            content.style.cssText = `
-                white-space: pre-wrap; word-break: break-word;
-                font-family: 'Georgia', serif; font-size: 16px; line-height: 1.9;
-                color: #2c2c2c; min-height: 160px;
-            `;
-            div.appendChild(content);
-            const lines = document.createElement('div');
-            lines.style.cssText = `
-                position: absolute; top: 0; left: 20px; right: 20px; bottom: 0;
-                pointer-events: none; opacity: 0.08;
-                background: repeating-linear-gradient(to bottom, transparent, transparent 28px, #b8a898 28px, #b8a898 29px);
-            `;
-            div.appendChild(lines);
-            return div;
-        }
-
-        function createNavButton(label, onClick, enabled) {
-            const btn = document.createElement('button');
-            btn.textContent = label;
-            btn.style.cssText = `
-                padding: 8px 18px; border: none; border-radius: 24px;
-                background: ${enabled ? '#8a7a6a' : '#ccc'};
-                color: white; font-family: 'Georgia', serif; font-size: 14px;
-                cursor: ${enabled ? 'pointer' : 'default'}; transition: 0.2s;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-            `;
-            if (enabled) {
-                btn.onmouseover = () => { btn.style.background = '#6a5a4a'; };
-                btn.onmouseout = () => { btn.style.background = '#8a7a6a'; };
-                btn.onclick = onClick;
-            } else {
-                btn.style.opacity = '0.5';
+            } else if (!hasRightPage) {
+                // Page unique, passer au chapitre suivant
+                if (currentChapterIndex < chapitres.length - 1) {
+                    currentChapterIndex++;
+                    currentPageIndex = 0;
+                    render();
+                }
             }
-            return btn;
-        }
+        }, currentPageIndex < totalPages - 1 || currentChapterIndex < chapitres.length - 1);
 
-        render();
+        const progress = document.createElement('span');
+        progress.textContent = `Pages ${leftPageIndex + 1}${hasRightPage ? ' – ' + (rightPageIndex + 1) : ''} / ${totalPages} (Chap. ${currentChapterIndex + 1})`;
+        progress.style.cssText = `
+            font-size: 13px; color: #8a7a6a; padding: 4px 12px;
+            background: #ede8e0; border-radius: 20px;
+        `;
+
+        nav.appendChild(btnPrev);
+        nav.appendChild(progress);
+        nav.appendChild(btnNext);
+        container.appendChild(nav);
     }
+
+    function createPageElement(text, pageNum) {
+        const div = document.createElement('div');
+        div.style.cssText = `
+            flex: 1; padding: 20px 24px; background: #fcf9f6; border-radius: 4px;
+            line-height: 2; font-size: 16px; color: #2c2c2c; min-height: 200px;
+            max-height: 400px; overflow-y: auto; border: 1px solid #ede8e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;
+            margin: 4px;
+        `;
+        const num = document.createElement('span');
+        num.textContent = pageNum;
+        num.style.cssText = `
+            position: absolute; bottom: 8px; right: 12px; font-size: 12px;
+            color: #d0c8b8; font-style: italic;
+        `;
+        div.appendChild(num);
+        const content = document.createElement('div');
+        content.textContent = text;
+        content.style.cssText = `
+            white-space: pre-wrap; word-break: break-word;
+            font-family: 'Georgia', serif; font-size: 16px; line-height: 1.9;
+            color: #2c2c2c; min-height: 160px;
+        `;
+        div.appendChild(content);
+        // Lignes de cahier
+        const lines = document.createElement('div');
+        lines.style.cssText = `
+            position: absolute; top: 0; left: 20px; right: 20px; bottom: 0;
+            pointer-events: none; opacity: 0.08;
+            background: repeating-linear-gradient(to bottom, transparent, transparent 28px, #b8a898 28px, #b8a898 29px);
+        `;
+        div.appendChild(lines);
+        return div;
+    }
+
+    function createNavButton(label, onClick, enabled) {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        btn.style.cssText = `
+            padding: 8px 18px; border: none; border-radius: 24px;
+            background: ${enabled ? '#8a7a6a' : '#ccc'};
+            color: white; font-family: 'Georgia', serif; font-size: 14px;
+            cursor: ${enabled ? 'pointer' : 'default'}; transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        `;
+        if (enabled) {
+            btn.onmouseover = () => { btn.style.background = '#6a5a4a'; };
+            btn.onmouseout = () => { btn.style.background = '#8a7a6a'; };
+            btn.onclick = onClick;
+        } else {
+            btn.style.opacity = '0.5';
+        }
+        return btn;
+    }
+
+    render();
+}
 
     // ─── CRÉATION DE LA BIBLIOTHÈQUE ──────────────────────────────
     createBookshelf();
