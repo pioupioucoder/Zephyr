@@ -802,7 +802,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         const height = 0.25;
         // Positionner le livre debout sur l'étagère : y = shelfY + hauteur/2
         // z = -0.12 pour qu'il soit légèrement en avant du fond de l'étagère
-        book.position.set(xPos, shelfY + height/2, -0.12);
+        book.position.set(xPos, shelfY + height/2 + 0.02, -0.12);
         book.castShadow = true;
         book.receiveShadow = true;
 
