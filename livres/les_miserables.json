@@ -1,0 +1,7 @@
+{
+  "pages": [
+    { "numero": 1, "contenu": "Jean Valjean était un forçat.\nIl avait passé dix-neuf ans au bagne." },
+    { "numero": 2, "contenu": "L'évêque Myriel lui offrit le couvert.\nIl lui pardonna le vol des couverts." },
+    { "numero": 3, "contenu": "Valjean devint maire de Montreuil-sur-Mer.\nIl prit soin de Cosette." }
+  ]
+}

@@ -1,4 +1,4 @@
-// illusion.js – version finale avec porte interactive (ouverture/sortie physique) + tous les objets
+// illusion.js – version finale avec 3 grands livres debout, réalistes, sur l'étagère
 import * as THREE from 'three';
 
 export function buildIllusionWorld(scene, camera, canvas) {
@@ -275,7 +275,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
     wallCollider.name = 'wallCollider';
     scene.add(wallCollider);
 
-    // ─── LAMPE MODERNE ───────────────────────────────────────────
+    // ─── LAMPE MODERNE (allumée par défaut) ───────────────────────
     const lampConfigs = [
         {
             id: 'right',
@@ -309,9 +309,9 @@ export function buildIllusionWorld(scene, camera, canvas) {
             transparent: true,
             opacity: 0.9
         });
-        bulbMat.color.setHex(0x444444);
-        bulbMat.emissive.setHex(0x444444);
-        bulbMat.emissiveIntensity = 0;
+        bulbMat.color.setHex(cfg.color);  // Allumé par défaut
+        bulbMat.emissive.setHex(cfg.color);
+        bulbMat.emissiveIntensity = 0.8;
 
         const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), bulbMat);
         bulb.position.y = -0.15;
@@ -320,7 +320,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.range);
         light.position.copy(cfg.position);
         light.position.y -= 0.15;
-        light.intensity = 0;
+        light.intensity = cfg.intensity;  // Allumé par défaut
         scene.add(light);
 
         const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
@@ -330,7 +330,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
 
         scene.add(group);
 
-        lampStates[cfg.id] = false;
+        lampStates[cfg.id] = true; // Allumé par défaut
         lampMeshes[cfg.id] = {
             light: light,
             bulbMat: bulbMat,
@@ -347,16 +347,16 @@ export function buildIllusionWorld(scene, camera, canvas) {
         switchGroup.add(plate);
 
         const btnMat = new THREE.MeshStandardMaterial({
-            color: 0xaa4444,
-            emissive: 0x000000,
-            emissiveIntensity: 0,
+            color: 0x44aa44, // Vert (allumé)
+            emissive: 0x44aa44,
+            emissiveIntensity: 0.2,
             roughness: 0.4
         });
         const btn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), btnMat);
         btn.position.set(0, 0, 0.03);
         btn.userData.isSwitch = true;
         btn.userData.lampId = cfg.id;
-        btn.userData.defaultColor = 0xaa4444;
+        btn.userData.defaultColor = 0x44aa44;
         btn.userData.hoverColor = 0x88ff88;
         switchGroup.add(btn);
 
@@ -391,8 +391,8 @@ export function buildIllusionWorld(scene, camera, canvas) {
                     const isOn = lampStates[hoveredSwitch.userData.lampId];
                     const defaultColor = isOn ? 0x44aa44 : 0xaa4444;
                     hoveredSwitch.material.color.setHex(defaultColor);
-                    hoveredSwitch.material.emissive.setHex(0x000000);
-                    hoveredSwitch.material.emissiveIntensity = 0;
+                    hoveredSwitch.material.emissive.setHex(defaultColor);
+                    hoveredSwitch.material.emissiveIntensity = isOn ? 0.2 : 0;
                 }
                 if (newHover) {
                     newHover.material.color.setHex(0x88ff88);
@@ -416,6 +416,8 @@ export function buildIllusionWorld(scene, camera, canvas) {
                 data.bulbMat.emissive.setHex(data.color);
                 data.bulbMat.emissiveIntensity = 0.8;
                 hoveredSwitch.material.color.setHex(0x44aa44);
+                hoveredSwitch.material.emissive.setHex(0x44aa44);
+                hoveredSwitch.material.emissiveIntensity = 0.2;
                 hoveredSwitch.userData.defaultColor = 0x44aa44;
             } else {
                 data.light.intensity = 0;
@@ -423,6 +425,8 @@ export function buildIllusionWorld(scene, camera, canvas) {
                 data.bulbMat.emissive.setHex(0x444444);
                 data.bulbMat.emissiveIntensity = 0;
                 hoveredSwitch.material.color.setHex(0xaa4444);
+                hoveredSwitch.material.emissive.setHex(0x000000);
+                hoveredSwitch.material.emissiveIntensity = 0;
                 hoveredSwitch.userData.defaultColor = 0xaa4444;
             }
         });
@@ -540,340 +544,32 @@ export function buildIllusionWorld(scene, camera, canvas) {
     }
     createBed();
 
-    // ─── LIVRE ────────────────────────────────────────────────────
-    function getJsonUrl() {
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            return '/projet/Illusion/livres/mon_livre.json';
+    // ================================================================
+    // ========== LIVRES – NOUVELLE VERSION GRANDE ET RÉALISTE ==========
+    // ================================================================
+    const BOOKS_DATA = [
+        {
+            id: 'Your_Words_That_I_Never_Heard',
+            title: 'Your Words That I Never Heard',
+            chapter: 'A Cold Morning',
+            jsonUrl: 'Your_Words_That_I_Never_Heard.json',
+            color: 0x1a3a5a  // bleu nuit
+        },
+        {
+            id: '1984',
+            title: '1984',
+            chapter: 'Big Brother',
+            jsonUrl: '1984.json',
+            color: 0x6a2a2a  // rouge sombre
+        },
+        {
+            id: 'le_petit_prince',
+            title: 'Le Petit Prince',
+            chapter: 'Le renard',
+            jsonUrl: 'le_petit_prince.json',
+            color: 0x3a6a3a  // vert forêt
         }
-        return 'https://raw.githubusercontent.com/pioupioucoder/BeYourDog/master/livres/mon_livre.json';
-    }
-    const JSON_URL = getJsonUrl();
-
-    let currentPage = 0,
-        totalPages = 0,
-        bookData = null;
-
-    function chargerContenuLivre(container) {
-        fetch(JSON_URL)
-            .then(response => {
-                if (!response.ok) throw new Error("Fichier JSON introuvable !");
-                return response.json();
-            })
-            .then(data => {
-                if (!data.pages || data.pages.length === 0) {
-                    data.pages = [{ numero: 1, contenu: "📖 Aucune page trouvée." }];
-                }
-                bookData = data;
-                totalPages = data.pages.length;
-                currentPage = 0;
-                afficherLivre(container);
-            })
-            .catch(err => {
-                container.innerHTML = `
-                    <p style="color:#e74c3c; text-align:center; font-size:18px;">
-                        ❌ Livre introuvable.<br>
-                        <span style="font-size:14px; color:#aaa;">${err.message}</span><br>
-                        <code style="color:#f1c40f;">${JSON_URL}</code>
-                    </p>
-                `;
-            });
-    }
-
-    function afficherLivre(container) {
-        if (!bookData || !bookData.pages) return;
-        const pages = bookData.pages;
-        const leftIndex = currentPage,
-            rightIndex = currentPage + 1;
-        container.innerHTML = '';
-        container.style.cssText = `
-            display: flex; flex-direction: column; align-items: center;
-            background: #f5f0eb; border-radius: 12px; padding: 20px;
-            min-height: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-            font-family: 'Georgia', serif; position: relative;
-        `;
-        const header = document.createElement('div');
-        header.style.cssText = `
-            width: 100%; display: flex; justify-content: space-between;
-            align-items: center; margin-bottom: 15px; padding-bottom: 10px;
-            border-bottom: 1px solid #ddd; font-size: 14px; color: #6a5a4a;
-        `;
-        const leftLabel = document.createElement('span');
-        leftLabel.textContent = `📖 Page ${leftIndex + 1} / ${totalPages}`;
-        const rightLabel = document.createElement('span');
-        rightLabel.textContent = rightIndex < totalPages ? `Page ${rightIndex + 1} / ${totalPages}` : '';
-        const bookmark = document.createElement('span');
-        bookmark.textContent = `🔖 Page ${currentPage + 1}`;
-        bookmark.style.cssText = `
-            font-size: 14px; background: #d4a373; padding: 4px 14px;
-            border-radius: 4px 4px 0 0; color: white;
-            box-shadow: 0 -2px 6px rgba(0,0,0,0.1);
-        `;
-        header.appendChild(leftLabel);
-        header.appendChild(bookmark);
-        header.appendChild(rightLabel);
-        container.appendChild(header);
-
-        const bookBody = document.createElement('div');
-        bookBody.style.cssText = `
-            display: flex; gap: 20px; width: 100%; flex: 1;
-            min-height: 300px; background: #fcf9f6; border-radius: 8px;
-            padding: 15px; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
-            position: relative;
-        `;
-        const leftPage = createPageElement(pages[leftIndex]);
-        bookBody.appendChild(leftPage);
-        const separator = document.createElement('div');
-        separator.style.cssText = `
-            width: 2px; background: linear-gradient(to bottom, #d4c8b8, #b8a898, #d4c8b8);
-            flex-shrink: 0; margin: 10px 0; box-shadow: -2px 0 8px rgba(0,0,0,0.05);
-        `;
-        bookBody.appendChild(separator);
-        if (rightIndex < totalPages) {
-            const rightPage = createPageElement(pages[rightIndex]);
-            bookBody.appendChild(rightPage);
-        } else {
-            const emptyPage = document.createElement('div');
-            emptyPage.style.cssText = `
-                flex: 1; display: flex; align-items: center; justify-content: center;
-                color: #aaa; font-style: italic; font-size: 16px; padding: 20px;
-                background: #fcf9f6; border-radius: 4px;
-            `;
-            emptyPage.textContent = '✨ Fin du livre';
-            bookBody.appendChild(emptyPage);
-        }
-        container.appendChild(bookBody);
-
-        const nav = document.createElement('div');
-        nav.style.cssText = `
-            display: flex; gap: 15px; margin-top: 18px; align-items: center;
-            width: 100%; justify-content: center; flex-wrap: wrap;
-        `;
-        const btnPrev = createNavButton('◀ Précédent', () => {
-            if (currentPage > 0) {
-                currentPage -= 2;
-                if (currentPage < 0) currentPage = 0;
-                afficherLivre(container);
-            }
-        }, currentPage > 0);
-        const btnNext = createNavButton('Suivant ▶', () => {
-            if (currentPage + 2 < totalPages) {
-                currentPage += 2;
-                afficherLivre(container);
-            }
-        }, currentPage + 2 < totalPages);
-        const progress = document.createElement('span');
-        progress.textContent = `${currentPage + 1} – ${Math.min(currentPage + 2, totalPages)} / ${totalPages}`;
-        progress.style.cssText = `
-            font-size: 13px; color: #8a7a6a; padding: 4px 12px;
-            background: #ede8e0; border-radius: 20px;
-        `;
-        nav.appendChild(btnPrev);
-        nav.appendChild(progress);
-        nav.appendChild(btnNext);
-        container.appendChild(nav);
-    }
-
-    function createPageElement(page) {
-        const div = document.createElement('div');
-        div.style.cssText = `
-            flex: 1; padding: 12px 16px; background: #fcf9f6; border-radius: 4px;
-            line-height: 2; font-size: 15px; color: #2c2c2c; min-height: 200px;
-            max-height: 400px; overflow-y: auto; border: 1px solid #ede8e0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;
-        `;
-        const num = document.createElement('span');
-        num.textContent = page.numero;
-        num.style.cssText = `
-            position: absolute; bottom: 8px; right: 12px; font-size: 11px;
-            color: #d0c8b8; font-style: italic;
-        `;
-        div.appendChild(num);
-        const content = document.createElement('div');
-        content.textContent = page.contenu;
-        content.style.cssText = `
-            white-space: pre-wrap; word-break: break-word;
-            font-family: 'Georgia', serif; font-size: 15px; line-height: 1.9;
-            color: #2c2c2c; min-height: 160px;
-        `;
-        div.appendChild(content);
-        const lines = document.createElement('div');
-        lines.style.cssText = `
-            position: absolute; top: 0; left: 20px; right: 20px; bottom: 0;
-            pointer-events: none; opacity: 0.08;
-            background: repeating-linear-gradient(to bottom, transparent, transparent 28px, #b8a898 28px, #b8a898 29px);
-        `;
-        div.appendChild(lines);
-        return div;
-    }
-
-    function createNavButton(label, onClick, enabled) {
-        const btn = document.createElement('button');
-        btn.textContent = label;
-        btn.style.cssText = `
-            padding: 8px 18px; border: none; border-radius: 24px;
-            background: ${enabled ? '#8a7a6a' : '#ccc'};
-            color: white; font-family: 'Georgia', serif; font-size: 14px;
-            cursor: ${enabled ? 'pointer' : 'default'}; transition: 0.2s;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        `;
-        if (enabled) {
-            btn.onmouseover = () => { btn.style.background = '#6a5a4a'; };
-            btn.onmouseout = () => { btn.style.background = '#8a7a6a'; };
-            btn.onclick = onClick;
-        } else {
-            btn.style.opacity = '0.5';
-        }
-        return btn;
-    }
-
-    // ─── LIVRE 3D ──────────────────────────────────────────────────
-    function creerLivre3D() {
-        const group = new THREE.Group();
-        const couvMat = new THREE.MeshStandardMaterial({ color: 0x8B0000, roughness: 0.7, metalness: 0.1 });
-        const couv = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.03, 0.18), couvMat);
-        couv.position.set(0, 0.015, 0);
-        group.add(couv);
-        const pageMat = new THREE.MeshStandardMaterial({ color: 0xFAF0E6, roughness: 0.9 });
-        const pages = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.17), pageMat);
-        pages.position.set(0, 0, 0);
-        group.add(pages);
-        const dosMat = new THREE.MeshStandardMaterial({ color: 0x5C3A21 });
-        const dos = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.035, 0.01), dosMat);
-        dos.position.set(0, 0.017, -0.09);
-        group.add(dos);
-        group.userData.estLivre = true;
-        group.userData.couvMat = couvMat;
-        group.userData.couleurOriginale = 0x8B0000;
-        group.userData.couleurSurvol = 0xCC4444;
-        return group;
-    }
-
-    let monLivre = null;
-
-    function ajouterLivreSurBibliotheque() {
-        if (monLivre) return;
-        let bibliotheque = window._bibliotheque || null;
-        let hauteurEtagere = 0.95;
-
-        if (!bibliotheque) {
-            scene.children.forEach((child) => {
-                if (child.userData && Array.isArray(child.userData.etageres)) {
-                    bibliotheque = child;
-                    const etageres = child.userData.etageres;
-                    if (etageres.length > 2) {
-                        hauteurEtagere = etageres[2] + 0.02;
-                    } else if (etageres.length > 0) {
-                        hauteurEtagere = etageres[0] + 0.02;
-                    }
-                }
-            });
-        } else {
-            const etageres = bibliotheque.userData.etageres;
-            if (etageres && etageres.length > 2) {
-                hauteurEtagere = etageres[2] + 0.02;
-            } else if (etageres && etageres.length > 0) {
-                hauteurEtagere = etageres[0] + 0.02;
-            }
-        }
-
-        if (!bibliotheque) {
-            console.warn('📚 Bibliothèque non trouvée, le livre sera ajouté à la scène.');
-        }
-
-        const livre = creerLivre3D();
-        monLivre = livre;
-        livre.position.set(0.6, hauteurEtagere, 0.0);
-        livre.rotation.y = 0;
-        if (bibliotheque) {
-            bibliotheque.add(livre);
-        } else {
-            scene.add(livre);
-        }
-
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        let livreSurvole = false;
-
-        function onMouseMove(event) {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects([livre], true);
-            if (intersects.length > 0) {
-                if (!livreSurvole) {
-                    livreSurvole = true;
-                    livre.userData.couvMat.color.setHex(livre.userData.couleurSurvol);
-                    canvas.style.cursor = 'pointer';
-                }
-            } else {
-                if (livreSurvole) {
-                    livreSurvole = false;
-                    livre.userData.couvMat.color.setHex(livre.userData.couleurOriginale);
-                    canvas.style.cursor = 'crosshair';
-                }
-            }
-        }
-
-        function onMouseClick(event) {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects([livre], true);
-            if (intersects.length > 0) {
-                ouvrirLivre();
-                event.stopPropagation();
-            }
-        }
-
-        canvas.addEventListener('mousemove', onMouseMove);
-        canvas.addEventListener('click', onMouseClick);
-        window._cleanupLivre = function() {
-            canvas.removeEventListener('mousemove', onMouseMove);
-            canvas.removeEventListener('click', onMouseClick);
-        };
-    }
-
-    function ouvrirLivre() {
-        let modal = document.getElementById('modalLivre');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'modalLivre';
-            modal.style.cssText = `
-                position: fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-                width:70%; max-width:800px; height:80%;
-                background: #f5f0eb; border-radius:12px;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding:20px; z-index:1000;
-                display:none; flex-direction:column; font-family: 'Georgia', serif;
-            `;
-            document.body.appendChild(modal);
-        }
-        modal.innerHTML = '';
-        modal.style.display = 'flex';
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '✕';
-        closeBtn.style.cssText = `
-            position: absolute; top:10px; right:20px; font-size:28px;
-            background:none; border:none; cursor:pointer; color:#333;
-        `;
-        closeBtn.onclick = () => { modal.style.display = 'none'; };
-        modal.appendChild(closeBtn);
-        const titre = document.createElement('h2');
-        titre.textContent = '📖 Mon Livre';
-        titre.style.marginTop = '0';
-        modal.appendChild(titre);
-        const contentDiv = document.createElement('div');
-        contentDiv.id = 'contenuLivre';
-        contentDiv.style.cssText = `
-            flex:1; overflow-y:auto; margin-top:10px;
-            display:flex; flex-direction:column; gap:15px;
-        `;
-        modal.appendChild(contentDiv);
-        chargerContenuLivre(contentDiv);
-    }
-
-    setTimeout(ajouterLivreSurBibliotheque, 400);
+    ];
 
     // ─── BIBLIOTHÈQUE ──────────────────────────────────────────
     function createBookshelf() {
@@ -933,7 +629,478 @@ export function buildIllusionWorld(scene, camera, canvas) {
         group.rotation.y = Math.PI / 2;
         scene.add(group);
         window._bookshelfPosition = group.position.clone();
+
+        // Ajouter les livres sur la troisième étagère (index 2)
+        const shelfIndex = 2;
+        const shelfY = etageres[shelfIndex];
+        const startX = -width / 2 + 0.12;
+        const spacingX = 0.22;
+        BOOKS_DATA.forEach((bookData, index) => {
+            const x = startX + index * spacingX;
+            addBookToShelf(bookData, group, shelfY, x);
+        });
     }
+
+    // ─── CRÉATION D'UN GRAND LIVRE RÉALISTE ──────────────────────
+    function createBook3D(title, chapter, color) {
+        const group = new THREE.Group();
+
+        // Dimensions d'un vrai livre (grand, bien proportionné)
+        const height = 0.25;      // hauteur (≈ 35 cm)
+        const width = 0.06;       // épaisseur du dos (visible de face)
+        const depth = 0.3;        // profondeur (de la couverture au dos)
+
+        // Texture de la couverture (titre + chapitre)
+        function createCoverTexture(title, chapter) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Fond avec dégradé
+            const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            grad.addColorStop(0, '#5a3a2a');
+            grad.addColorStop(1, '#2a1a10');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Bordure dorée
+            ctx.strokeStyle = '#d4a840';
+            ctx.lineWidth = 14;
+            ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+            // Titre (en haut)
+            ctx.fillStyle = '#f5e6c8';
+            ctx.font = 'bold 64px "Georgia", serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(title, canvas.width/2, 70);
+
+            // Séparateur
+            ctx.strokeStyle = '#d4a840';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(60, 200);
+            ctx.lineTo(canvas.width - 60, 200);
+            ctx.stroke();
+
+            // Chapitre
+            ctx.fillStyle = '#e8d5b0';
+            ctx.font = '42px "Georgia", serif';
+            ctx.textBaseline = 'top';
+            ctx.fillText('Chapitre :', canvas.width/2, 230);
+            ctx.font = 'bold 52px "Georgia", serif';
+            ctx.fillStyle = '#f5e6c8';
+            ctx.fillText(chapter, canvas.width/2, 290);
+
+            // Ornement
+            ctx.fillStyle = '#d4a840';
+            ctx.font = '70px serif';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('✦', canvas.width/2, canvas.height - 30);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const coverTex = createCoverTexture(title, chapter);
+        const coverMat = new THREE.MeshStandardMaterial({
+            map: coverTex,
+            roughness: 0.5,
+            metalness: 0.1,
+            side: THREE.DoubleSide
+        });
+
+        // Corps du livre (pages)
+        const pagesMat = new THREE.MeshStandardMaterial({
+            color: 0xf5f0e8,
+            roughness: 0.9
+        });
+        const pages = new THREE.Mesh(
+            new THREE.BoxGeometry(width, height, depth),
+            pagesMat
+        );
+        pages.position.set(0, 0, 0);
+        pages.castShadow = true;
+        pages.receiveShadow = true;
+        group.add(pages);
+
+        // Couverture avant (face Z positive)
+        const cover = new THREE.Mesh(
+            new THREE.PlaneGeometry(width, height),
+            coverMat
+        );
+        cover.position.set(0, 0, depth/2 + 0.002);
+        cover.castShadow = true;
+        cover.receiveShadow = true;
+        group.add(cover);
+
+        // Dos (face Z négative) – couleur unie
+        const spineMat = new THREE.MeshStandardMaterial({
+            color: 0x3a2218,
+            roughness: 0.8
+        });
+        const spine = new THREE.Mesh(
+            new THREE.PlaneGeometry(width, height),
+            spineMat
+        );
+        spine.position.set(0, 0, -depth/2 - 0.002);
+        spine.rotation.y = Math.PI;
+        spine.castShadow = true;
+        spine.receiveShadow = true;
+        group.add(spine);
+
+        // Tranches (côtés X positif et négatif)
+        const edgeMat = new THREE.MeshStandardMaterial({
+            color: 0xe8dcc8,
+            roughness: 0.8
+        });
+        const edgePos = new THREE.Mesh(
+            new THREE.PlaneGeometry(depth, height),
+            edgeMat
+        );
+        edgePos.position.set(width/2 + 0.002, 0, 0);
+        edgePos.rotation.y = Math.PI/2;
+        edgePos.castShadow = true;
+        edgePos.receiveShadow = true;
+        group.add(edgePos);
+
+        const edgeNeg = new THREE.Mesh(
+            new THREE.PlaneGeometry(depth, height),
+            edgeMat
+        );
+        edgeNeg.position.set(-width/2 - 0.002, 0, 0);
+        edgeNeg.rotation.y = -Math.PI/2;
+        edgeNeg.castShadow = true;
+        edgeNeg.receiveShadow = true;
+        group.add(edgeNeg);
+
+        // Zone cliquable (invisible) devant la couverture
+        const clickArea = new THREE.Mesh(
+            new THREE.PlaneGeometry(width * 0.9, height * 0.9),
+            new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide })
+        );
+        clickArea.position.set(0, 0, depth/2 + 0.003);
+        clickArea.userData.isClickArea = true;
+        group.add(clickArea);
+
+        // Stockage pour l'interaction
+        group.userData.estLivre = true;
+        group.userData.coverMat = coverMat;
+        group.userData.originalColor = color;
+        group.userData.hoverColor = 0xcc8844;
+
+        return group;
+    }
+
+    // ─── AJOUT D'UN LIVRE SUR L'ÉTAGÈRE ─────────────────────────
+    function addBookToShelf(bookData, shelfGroup, shelfY, xPos) {
+        const book = createBook3D(bookData.title, bookData.chapter, bookData.color);
+        // Le livre est créé avec sa face avant en Z+.
+        // L'étagère est tournée de Math.PI/2 : son Z local correspond au -X monde.
+        // Pour que la couverture pointe vers -X monde (vers la salle), on tourne de Math.PI.
+        book.rotation.y = Math.PI;
+        const height = 0.25;
+        // Positionner le livre debout sur l'étagère : y = shelfY + hauteur/2
+        // z = -0.12 pour qu'il soit légèrement en avant du fond de l'étagère
+        book.position.set(xPos, shelfY + height/2, -0.12);
+        book.castShadow = true;
+        book.receiveShadow = true;
+
+        book.userData.jsonUrl = bookData.jsonUrl;
+        shelfGroup.add(book);
+
+        // Interactions souris (survol + clic)
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let hover = false;
+
+        function onMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(book.children, true);
+            if (intersects.length > 0) {
+                if (!hover) {
+                    hover = true;
+                    book.userData.coverMat.color.setHex(book.userData.hoverColor);
+                    canvas.style.cursor = 'pointer';
+                }
+            } else {
+                if (hover) {
+                    hover = false;
+                    book.userData.coverMat.color.setHex(book.userData.originalColor);
+                    canvas.style.cursor = 'default';
+                }
+            }
+        }
+
+        function onMouseClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(book.children, true);
+            if (intersects.length > 0) {
+                const url = book.userData.jsonUrl;
+                openBookWithURL(url);
+                event.stopPropagation();
+            }
+        }
+
+        canvas.addEventListener('mousemove', onMouseMove);
+        canvas.addEventListener('click', onMouseClick);
+        book.userData._cleanup = function() {
+            canvas.removeEventListener('mousemove', onMouseMove);
+            canvas.removeEventListener('click', onMouseClick);
+        };
+    }
+
+    // ─── OUVERTURE D'UN LIVRE (MODALE) ──────────────────────────
+    function openBookWithURL(url) {
+        let modal = document.getElementById('modalLivre');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modalLivre';
+            modal.style.cssText = `
+                position: fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+                width:70%; max-width:800px; height:80%;
+                background: #f5f0eb; border-radius:12px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding:20px; z-index:1000;
+                display:none; flex-direction:column; font-family: 'Georgia', serif;
+            `;
+            document.body.appendChild(modal);
+        }
+        modal.innerHTML = '';
+        modal.style.display = 'flex';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            position: absolute; top:10px; right:20px; font-size:28px;
+            background:none; border:none; cursor:pointer; color:#333;
+        `;
+        closeBtn.onclick = () => { modal.style.display = 'none'; };
+        modal.appendChild(closeBtn);
+
+        const titre = document.createElement('h2');
+        titre.textContent = '📖 ' + url.replace('.json', '');
+        titre.style.marginTop = '0';
+        modal.appendChild(titre);
+
+        const contentDiv = document.createElement('div');
+        contentDiv.id = 'contenuLivre';
+        contentDiv.style.cssText = `
+            flex:1; overflow-y:auto; margin-top:10px;
+            display:flex; flex-direction:column; gap:15px;
+        `;
+        modal.appendChild(contentDiv);
+
+        chargerContenuLivre(contentDiv, url);
+    }
+
+    // ─── CHARGEMENT DU JSON (CHEMIN CORRIGÉ) ────────────────────
+    function chargerContenuLivre(container, jsonUrl) {
+        // Construction du chemin selon l'environnement
+        const hostname = window.location.hostname;
+        let fullUrl;
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            fullUrl = '/projet/Illusion/livres/' + jsonUrl;
+        } else {
+            fullUrl = 'livres/' + jsonUrl;
+        }
+
+        fetch(fullUrl)
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
+            .then(data => {
+                // Vérifier la structure (chapitres ou pages)
+                if (data.chapitres) {
+                    afficherLivre(container, data);
+                } else if (data.pages) {
+                    // Convertir l'ancien format en chapitres
+                    const chapitres = [{
+                        titre: 'Contenu',
+                        pages: data.pages.map(p => p.contenu || p)
+                    }];
+                    afficherLivre(container, { chapitres });
+                } else {
+                    afficherLivre(container, {
+                        chapitres: [{ titre: 'Erreur', pages: ['Structure JSON invalide.'] }]
+                    });
+                }
+            })
+            .catch(err => {
+                console.error('❌ Erreur chargement JSON:', err);
+                afficherLivre(container, {
+                    chapitres: [
+                        { titre: '📖 Fichier introuvable', pages: [
+                            'Le fichier ' + jsonUrl + ' n\'a pas été trouvé.',
+                            'Vérifie son emplacement (dossier "livres/") ou crée-le.',
+                            'Structure attendue : { "chapitres": [ { "titre": "...", "pages": ["..."] } ] }'
+                        ]}
+                    ]
+                });
+            });
+    }
+
+    // ─── AFFICHAGE DU LIVRE (CHAPITRES + PAGES) ──────────────────
+    function afficherLivre(container, bookData) {
+        const chapitres = bookData.chapitres;
+        if (!chapitres || chapitres.length === 0) {
+            container.innerHTML = '<p style="color:red;">Aucun chapitre trouvé.</p>';
+            return;
+        }
+        let currentChapterIndex = 0;
+        let currentPageIndex = 0;
+
+        function render() {
+            container.innerHTML = '';
+            container.style.cssText = `
+                display: flex; flex-direction: column; align-items: center;
+                background: #f5f0eb; border-radius: 12px; padding: 20px;
+                min-height: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                font-family: 'Georgia', serif; position: relative;
+            `;
+
+            const chap = chapitres[currentChapterIndex];
+            const pages = chap.pages;
+            const totalPages = pages.length;
+
+            // En-tête
+            const header = document.createElement('div');
+            header.style.cssText = `
+                width: 100%; display: flex; justify-content: space-between;
+                align-items: center; margin-bottom: 15px; padding-bottom: 10px;
+                border-bottom: 1px solid #ddd; font-size: 14px; color: #6a5a4a;
+            `;
+            const chapTitle = document.createElement('span');
+            chapTitle.textContent = `📖 ${chap.titre}`;
+            chapTitle.style.fontWeight = 'bold';
+            const pageInfo = document.createElement('span');
+            pageInfo.textContent = `Page ${currentPageIndex + 1} / ${totalPages}`;
+            const chapNav = document.createElement('span');
+            chapNav.textContent = `Chapitre ${currentChapterIndex + 1} / ${chapitres.length}`;
+            chapNav.style.fontStyle = 'italic';
+            header.appendChild(chapTitle);
+            header.appendChild(pageInfo);
+            header.appendChild(chapNav);
+            container.appendChild(header);
+
+            // Corps : afficher la page courante
+            const bookBody = document.createElement('div');
+            bookBody.style.cssText = `
+                display: flex; gap: 20px; width: 100%; flex: 1;
+                min-height: 300px; background: #fcf9f6; border-radius: 8px;
+                padding: 15px; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+                position: relative;
+            `;
+            const pageDiv = createPageElement(pages[currentPageIndex], currentPageIndex + 1);
+            bookBody.appendChild(pageDiv);
+            container.appendChild(bookBody);
+
+            // Navigation
+            const nav = document.createElement('div');
+            nav.style.cssText = `
+                display: flex; gap: 15px; margin-top: 18px; align-items: center;
+                width: 100%; justify-content: center; flex-wrap: wrap;
+            `;
+
+            const btnPrevPage = createNavButton('◀ Page précédente', () => {
+                if (currentPageIndex > 0) {
+                    currentPageIndex--;
+                    render();
+                } else if (currentChapterIndex > 0) {
+                    currentChapterIndex--;
+                    const prevChap = chapitres[currentChapterIndex];
+                    currentPageIndex = prevChap.pages.length - 1;
+                    render();
+                }
+            }, currentPageIndex > 0 || currentChapterIndex > 0);
+
+            const btnNextPage = createNavButton('Page suivante ▶', () => {
+                if (currentPageIndex < totalPages - 1) {
+                    currentPageIndex++;
+                    render();
+                } else if (currentChapterIndex < chapitres.length - 1) {
+                    currentChapterIndex++;
+                    currentPageIndex = 0;
+                    render();
+                }
+            }, currentPageIndex < totalPages - 1 || currentChapterIndex < chapitres.length - 1);
+
+            const progress = document.createElement('span');
+            progress.textContent = `Page ${currentPageIndex + 1} / ${totalPages} (Chap. ${currentChapterIndex + 1})`;
+            progress.style.cssText = `
+                font-size: 13px; color: #8a7a6a; padding: 4px 12px;
+                background: #ede8e0; border-radius: 20px;
+            `;
+
+            nav.appendChild(btnPrevPage);
+            nav.appendChild(progress);
+            nav.appendChild(btnNextPage);
+            container.appendChild(nav);
+        }
+
+        function createPageElement(text, pageNum) {
+            const div = document.createElement('div');
+            div.style.cssText = `
+                flex: 1; padding: 20px 24px; background: #fcf9f6; border-radius: 4px;
+                line-height: 2; font-size: 16px; color: #2c2c2c; min-height: 200px;
+                max-height: 400px; overflow-y: auto; border: 1px solid #ede8e0;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;
+            `;
+            const num = document.createElement('span');
+            num.textContent = pageNum;
+            num.style.cssText = `
+                position: absolute; bottom: 8px; right: 12px; font-size: 12px;
+                color: #d0c8b8; font-style: italic;
+            `;
+            div.appendChild(num);
+            const content = document.createElement('div');
+            content.textContent = text;
+            content.style.cssText = `
+                white-space: pre-wrap; word-break: break-word;
+                font-family: 'Georgia', serif; font-size: 16px; line-height: 1.9;
+                color: #2c2c2c; min-height: 160px;
+            `;
+            div.appendChild(content);
+            const lines = document.createElement('div');
+            lines.style.cssText = `
+                position: absolute; top: 0; left: 20px; right: 20px; bottom: 0;
+                pointer-events: none; opacity: 0.08;
+                background: repeating-linear-gradient(to bottom, transparent, transparent 28px, #b8a898 28px, #b8a898 29px);
+            `;
+            div.appendChild(lines);
+            return div;
+        }
+
+        function createNavButton(label, onClick, enabled) {
+            const btn = document.createElement('button');
+            btn.textContent = label;
+            btn.style.cssText = `
+                padding: 8px 18px; border: none; border-radius: 24px;
+                background: ${enabled ? '#8a7a6a' : '#ccc'};
+                color: white; font-family: 'Georgia', serif; font-size: 14px;
+                cursor: ${enabled ? 'pointer' : 'default'}; transition: 0.2s;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            `;
+            if (enabled) {
+                btn.onmouseover = () => { btn.style.background = '#6a5a4a'; };
+                btn.onmouseout = () => { btn.style.background = '#8a7a6a'; };
+                btn.onclick = onClick;
+            } else {
+                btn.style.opacity = '0.5';
+            }
+            return btn;
+        }
+
+        render();
+    }
+
+    // ─── CRÉATION DE LA BIBLIOTHÈQUE (appel) ─────────────────────
     createBookshelf();
 
     // ─── CADRES AVEC IMAGES ──────────────────────────────────────
@@ -1662,91 +1829,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         return group;
     }
 
-    // ─── LECTEUR DE DISQUETTES ────────────────────────────────────────
-    function createDiskDrive() {
-        const group = new THREE.Group();
-        const driveW = 0.5,
-            driveH = 0.25,
-            driveD = 0.4;
-
-        const posX = -6.88;
-        const posY = 1.35;
-        const posZ = 5.29;
-
-        const metalMat = new THREE.MeshStandardMaterial({ color: 0x8899aa, metalness: 0.7, roughness: 0.3 });
-        const plasticMat = new THREE.MeshStandardMaterial({ color: 0x223344, roughness: 0.5 });
-        const buttonMat = new THREE.MeshStandardMaterial({ color: 0xcc3333, emissive: 0x440000, emissiveIntensity: 0.2 });
-        const slotMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-
-        const body = new THREE.Mesh(new THREE.BoxGeometry(driveW, driveH, driveD), metalMat);
-        body.position.set(0, driveH / 2, 0);
-        body.castShadow = true;
-        body.receiveShadow = true;
-        group.add(body);
-
-        const face = new THREE.Mesh(new THREE.PlaneGeometry(driveW * 0.9, driveH * 0.8), plasticMat);
-        face.position.set(0, driveH / 2, driveD / 2 + 0.001);
-        group.add(face);
-
-        const slot = new THREE.Mesh(new THREE.PlaneGeometry(driveW * 0.5, 0.04), slotMat);
-        slot.position.set(0, driveH / 2 + 0.02, driveD / 2 + 0.002);
-        group.add(slot);
-
-        const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.025, 8), buttonMat);
-        btn.rotation.x = Math.PI / 2;
-        btn.position.set(0.16, driveH / 2 - 0.04, driveD / 2 + 0.015);
-        btn.userData.isDriveButton = true;
-        group.add(btn);
-
-        const ledMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-        const led = new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 6), ledMat);
-        led.position.set(-0.16, driveH / 2 - 0.04, driveD / 2 + 0.015);
-        group.add(led);
-
-        const trayGroup = new THREE.Group();
-        trayGroup.position.set(0, driveH / 2 - 0.01, driveD / 2);
-        group.add(trayGroup);
-
-        const trayMat = new THREE.MeshStandardMaterial({ color: 0x445566, roughness: 0.6 });
-        const tray = new THREE.Mesh(new THREE.BoxGeometry(driveW * 0.6, 0.02, 0.12), trayMat);
-        tray.position.set(0, 0, 0);
-        tray.castShadow = true;
-        trayGroup.add(tray);
-
-        const recess = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.14), new THREE.MeshBasicMaterial({ color: 0x222233 }));
-        recess.position.set(0, 0.002, 0.01);
-        trayGroup.add(recess);
-
-        group.position.set(posX, posY, posZ);
-        group.rotation.y = Math.PI / 2;
-        scene.add(group);
-
-        window._diskDrive = {
-            group: group,
-            tray: trayGroup,
-            trayOpen: false,
-            trayAnimating: false,
-            button: btn,
-            insertedDisk: null,
-            diskName: null,
-            trayWorldPos: new THREE.Vector3(posX - 0.3, posY + 0.15, posZ)
-        };
-        window._diskDrivePosition = group.position.clone();
-
-        const start = new THREE.Vector3(posX - 0.35, posY + 0.05, posZ);
-        const end = new THREE.Vector3(-7.0, 0.2, 7.6);
-        const mid = new THREE.Vector3((start.x + end.x) / 2, 0.02, (start.z + end.z) / 2 + 0.3);
-        const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-        const tubeGeo = new THREE.TubeGeometry(curve, 30, 0.025, 8, false);
-        const cableMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
-        const cable = new THREE.Mesh(tubeGeo, cableMat);
-        cable.castShadow = true;
-        scene.add(cable);
-
-        console.log('💾 Lecteur de disquettes vintage (rehaussé)');
-        return group;
-    }
-
     // ─── MEUBLE À TIROIR ──────────────────────────────────────────────
     function createPedestalDrawer(config) {
         const {
@@ -1770,9 +1852,9 @@ export function buildIllusionWorld(scene, camera, canvas) {
         const legMat = new THREE.MeshStandardMaterial({ color: legColor, roughness: 0.3, metalness: 0.2 });
         const legPositions = [
             [-width/2 + 0.06, -depth/2 + 0.06],
-            [ width/2 - 0.06, -depth/2 + 0.06],
-            [-width/2 + 0.06,  depth/2 - 0.06],
-            [ width/2 - 0.06,  depth/2 - 0.06]
+            [ width/2 + 0.06, -depth/2 + 0.06],
+            [-width/2 + 0.06,  depth/2 + 0.06],
+            [ width/2 + 0.06,  depth/2 + 0.06]
         ];
         legPositions.forEach(([x, z]) => {
             const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, legHeight, 8), legMat);
@@ -1879,7 +1961,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
     // ─── CRÉATION DES OBJETS ──────────────────────────────────────
     createVintageTV();
     createCardboardBox();
-    createDiskDrive();
     createPedestalDrawer({
         posX: -6.88,
         posY: 0.0,
@@ -2047,45 +2128,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         window._greenBoardPosition = group.position.clone();
         console.log('🟩 Tableau vert avec enquete.PNG ajouté');
     })();
-
-    // ─── DISQUETTES ──────────────────────────────────────────────
-    function createFloppyDisks() {
-        if (window._diskGroup) {
-            scene.remove(window._diskGroup);
-            window._diskGroup = null;
-        }
-
-        const diskGroup = new THREE.Group();
-        diskGroup.position.set(201.46, 1.5, 4.95);
-        diskGroup.rotation.y = 0;
-
-        const geo = new THREE.BoxGeometry(2, 0.5, 2);
-        const mat = new THREE.MeshStandardMaterial({
-            color: 0xffaa00,
-            emissive: 0xffaa00,
-            emissiveIntensity: 1,
-            roughness: 0,
-            metalness: 0
-        });
-        const disk = new THREE.Mesh(geo, mat);
-        disk.userData.diskName = 'TEST';
-        disk.userData.isDisk = true;
-        diskGroup.add(disk);
-
-        const disk2 = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 0.5, 1),
-            new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1 })
-        );
-        disk2.position.set(2, 0, 0);
-        disk2.userData.isDisk = true;
-        diskGroup.add(disk2);
-
-        scene.add(diskGroup);
-        window._diskGroup = diskGroup;
-        window._disks = diskGroup.children;
-        console.log('💾 GROSSES DISQUETTES placées à (200, 1.7, 5) !');
-    }
-    createFloppyDisks();
 
     // ─── INTERACTIONS ──────────────────────────────────────────────
     function setupTVInteractions() {
@@ -2260,70 +2302,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
     }
     setupCartonInteractions();
 
-    function setupDriveInteractions() {
-        const drive = window._diskDrive;
-        if (!drive) return;
-
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        let hoverButton = false;
-
-        function onMouseMove(event) {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-
-            const btn = drive.button;
-            const intersects = raycaster.intersectObject(btn);
-            if (intersects.length > 0) {
-                canvas.style.cursor = 'pointer';
-                btn.material.color.setHex(0xff6666);
-                hoverButton = true;
-            } else {
-                if (hoverButton) {
-                    btn.material.color.setHex(0xcc3333);
-                    hoverButton = false;
-                    canvas.style.cursor = 'default';
-                }
-            }
-        }
-
-        function onMouseClick(event) {
-            if (!hoverButton) return;
-            const drive = window._diskDrive;
-            if (!drive || drive.trayAnimating) return;
-
-            drive.trayOpen = !drive.trayOpen;
-            drive.trayAnimating = true;
-            const targetZ = drive.trayOpen ? 0.2 : 0;
-            const startZ = drive.tray.position.z;
-            const duration = 400;
-            const startTime = performance.now();
-
-            function animateTray(time) {
-                const elapsed = time - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const eased = 1 - Math.pow(1 - progress, 3);
-                drive.tray.position.z = startZ + (targetZ - startZ) * eased;
-                if (progress < 1) {
-                    requestAnimationFrame(animateTray);
-                } else {
-                    drive.tray.position.z = targetZ;
-                    drive.trayAnimating = false;
-                    if (!drive.trayOpen && drive.insertedDisk) {
-                        loadVideoForDisk(drive.insertedDisk);
-                    }
-                }
-            }
-            requestAnimationFrame(animateTray);
-        }
-
-        canvas.addEventListener('mousemove', onMouseMove);
-        canvas.addEventListener('click', onMouseClick);
-    }
-    setupDriveInteractions();
-
     function setupPedestalInteractions() {
         if (!window._pedestalDrawers) return;
 
@@ -2397,180 +2375,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
     }
     setupPedestalInteractions();
 
-    // ─── DISK DRAG & DROP ──────────────────────────────────────────
-    let draggedDisk = null;
-    let dragOffset = new THREE.Vector3();
-    let diskOriginalParent = null;
-    let diskOriginalPos = new THREE.Vector3();
-    let diskOriginalQuat = new THREE.Quaternion();
-
-    function setupDiskInteractions() {
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        let isDragging = false;
-
-        function getDiskFromIntersect(intersects) {
-            for (let inter of intersects) {
-                let obj = inter.object;
-                while (obj && !obj.userData.isDisk) {
-                    obj = obj.parent;
-                }
-                if (obj && obj.userData.isDisk) {
-                    return obj;
-                }
-            }
-            return null;
-        }
-
-        function onPointerDown(event) {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = event.clientX || (event.touches && event.touches[0].clientX);
-            const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-            if (clientX === undefined) return;
-            mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-
-            const disks = window._disks || [];
-            const intersects = raycaster.intersectObjects(disks, true);
-            const disk = getDiskFromIntersect(intersects);
-            if (disk) {
-                isDragging = true;
-                draggedDisk = disk;
-                diskOriginalParent = disk.parent;
-                diskOriginalPos.copy(disk.position);
-                diskOriginalQuat.copy(disk.quaternion);
-                if (disk.parent) {
-                    disk.parent.remove(disk);
-                }
-                scene.add(disk);
-                const intersectPoint = new THREE.Vector3();
-                const planeIntersect = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-                raycaster.ray.intersectPlane(planeIntersect, intersectPoint);
-                if (intersectPoint) {
-                    dragOffset.copy(disk.position).sub(intersectPoint);
-                }
-                canvas.style.cursor = 'grabbing';
-            }
-        }
-
-        function onPointerMove(event) {
-            if (!isDragging || !draggedDisk) return;
-            const rect = canvas.getBoundingClientRect();
-            const clientX = event.clientX || (event.touches && event.touches[0].clientX);
-            const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-            if (clientX === undefined) return;
-            mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-
-            const planeIntersect = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-            const targetPos = new THREE.Vector3();
-            raycaster.ray.intersectPlane(planeIntersect, targetPos);
-            if (targetPos) {
-                targetPos.add(dragOffset);
-                targetPos.y = 1.35;
-                draggedDisk.position.copy(targetPos);
-            }
-        }
-
-        function onPointerUp(event) {
-            if (!isDragging || !draggedDisk) {
-                isDragging = false;
-                return;
-            }
-
-            const drive = window._diskDrive;
-            let inserted = false;
-            if (drive) {
-                const trayWorldPos = drive.trayWorldPos || new THREE.Vector3(-7.18, 1.50, 5.29);
-                const dist = draggedDisk.position.distanceTo(trayWorldPos);
-                if (dist < 0.6) {
-                    if (draggedDisk.parent) {
-                        draggedDisk.parent.remove(draggedDisk);
-                    }
-                    const tray = drive.tray;
-                    draggedDisk.position.set(0, 0.02, 0.02);
-                    draggedDisk.rotation.set(0, 0, 0);
-                    tray.add(draggedDisk);
-                    drive.insertedDisk = draggedDisk;
-                    drive.diskName = draggedDisk.userData.diskName;
-                    if (drive.trayOpen && !drive.trayAnimating) {
-                        drive.trayOpen = false;
-                        drive.trayAnimating = true;
-                        const targetZ = 0;
-                        const startZ = drive.tray.position.z;
-                        const duration = 400;
-                        const startTime = performance.now();
-
-                        function animateClose(time) {
-                            const elapsed = time - startTime;
-                            const progress = Math.min(elapsed / duration, 1);
-                            const eased = 1 - Math.pow(1 - progress, 3);
-                            drive.tray.position.z = startZ + (targetZ - startZ) * eased;
-                            if (progress < 1) {
-                                requestAnimationFrame(animateClose);
-                            } else {
-                                drive.tray.position.z = targetZ;
-                                drive.trayAnimating = false;
-                                loadVideoForDisk(draggedDisk);
-                            }
-                        }
-                        requestAnimationFrame(animateClose);
-                    } else {
-                        loadVideoForDisk(draggedDisk);
-                    }
-                    inserted = true;
-                }
-            }
-
-            if (!inserted) {
-                if (draggedDisk.parent) {
-                    draggedDisk.parent.remove(draggedDisk);
-                }
-                if (diskOriginalParent) {
-                    diskOriginalParent.add(draggedDisk);
-                    draggedDisk.position.copy(diskOriginalPos);
-                    draggedDisk.quaternion.copy(diskOriginalQuat);
-                } else {
-                    const cartonGroup = window._diskGroup;
-                    if (cartonGroup) {
-                        cartonGroup.add(draggedDisk);
-                        const maxX = 0.35, maxZ = 0.3;
-                        draggedDisk.position.set(
-                            (Math.random() - 0.5) * maxX * 2,
-                            0.02,
-                            (Math.random() - 0.5) * maxZ * 2
-                        );
-                        draggedDisk.rotation.y = (Math.random() - 0.5) * 0.4;
-                    }
-                }
-            }
-
-            isDragging = false;
-            draggedDisk = null;
-            canvas.style.cursor = 'default';
-        }
-
-        canvas.addEventListener('mousedown', onPointerDown);
-        window.addEventListener('mousemove', onPointerMove);
-        window.addEventListener('mouseup', onPointerUp);
-
-        canvas.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            onPointerDown(e);
-        }, { passive: false });
-        window.addEventListener('touchmove', function(e) {
-            e.preventDefault();
-            onPointerMove(e);
-        }, { passive: false });
-        window.addEventListener('touchend', function(e) {
-            e.preventDefault();
-            onPointerUp(e);
-        }, { passive: false });
-    }
-    setupDiskInteractions();
-
     // ─── PORTE EXTÉRIEURE – INTERACTION (sans redirection) ──────────────
     function setupDoorInteraction() {
         const raycaster = new THREE.Raycaster();
@@ -2613,12 +2417,10 @@ export function buildIllusionWorld(scene, camera, canvas) {
             const pivot = window._doorPivot;
             if (!pivot || window._doorAnimating) return;
 
-            // Si déjà ouverte, on ne fait rien (ou on pourrait refermer, mais on laisse ouvert)
             if (window._doorOpen) return;
 
-            // Ouvrir la porte
             window._doorOpen = true;
-            window._doorData.isOpen = true;   // ← crucial pour les collisions
+            window._doorData.isOpen = true;
             window._doorAnimating = true;
             const startAngle = pivot.rotation.y;
             const targetAngle = Math.PI / 2;
@@ -2636,7 +2438,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
                 } else {
                     pivot.rotation.y = targetAngle;
                     window._doorAnimating = false;
-                    // ← NE PAS REDIRIGER ICI
                 }
             }
             requestAnimationFrame(animateDoor);
@@ -2644,7 +2445,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
     }
     setupDoorInteraction();
 
-    // ─── MONOLOGUES CONTEXTUELS (optionnels) ──────────────────────
+    // ─── MONOLOGUES CONTEXTUELS ──────────────────────────────────────
     let monologueData = null;
     let lastMonologueTime = 0;
     const monologueCooldown = 5000;
@@ -2703,7 +2504,6 @@ export function buildIllusionWorld(scene, camera, canvas) {
         { id: 'tv', position: window._tvPosition || new THREE.Vector3(-7, 0, 7.2), radius: 2.5 },
         { id: 'greenboard', position: window._greenBoardPosition || new THREE.Vector3(1, 0, 0), radius: 2.5 },
         { id: 'carton', position: window._cartonPosition || new THREE.Vector3(-5, 0.35, 7), radius: 2.0 },
-        { id: 'diskdrive', position: window._diskDrivePosition || new THREE.Vector3(-6.88, 0, 5.29), radius: 2.0 },
         { id: 'pedestal', position: window._pedestalPosition || new THREE.Vector3(-6.88, 0, 5.29), radius: 2.0 },
     ];
 
