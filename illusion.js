@@ -2171,7 +2171,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         texturePlane.position.set(0, 0, depth / 2 + 0.001);
         group.add(texturePlane);
 
-        const imageUrl = getImagePath('enquete.PNG');
+        const imageUrl = getImagePath('enquete.png');
         const loader = new THREE.TextureLoader();
         const imgMat = new THREE.MeshStandardMaterial({
             color: 0xffffff,
@@ -2221,7 +2221,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
             fctx.font = 'bold 42px Georgia, serif';
             fctx.textAlign = 'center';
             fctx.textBaseline = 'middle';
-            fctx.fillText('📄 enquete.PNG', 256, 180);
+            fctx.fillText('📄 enquete.png', 256, 180);
             fctx.font = '24px Georgia, serif';
             fctx.fillStyle = '#a08050';
             fctx.fillText('image non trouvée', 256, 250);
@@ -2235,7 +2235,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
                 polygonOffsetUnits: -1
             });
             imgPlane.material.needsUpdate = true;
-            console.warn('⚠️ Image enquete.PNG non chargée, fallback affiché.');
+            console.warn('⚠️ Image enquete.png non chargée, fallback affiché.');
         });
 
         const frameMat2 = new THREE.MeshStandardMaterial({ color: 0x6a4e2e, roughness: 0.7, metalness: 0.1 });
@@ -2274,7 +2274,7 @@ export function buildIllusionWorld(scene, camera, canvas) {
         group.rotation.y = 0;
         scene.add(group);
         window._greenBoardPosition = group.position.clone();
-        console.log('🟩 Tableau vert avec enquete.PNG ajouté');
+        console.log('🟩 Tableau vert avec enquete.png ajouté');
     })();
 
     // ─── INTERACTIONS ──────────────────────────────────────────────
