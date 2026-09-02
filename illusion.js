@@ -1351,7 +1351,29 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
     }
 
     const DEFAULT_VIDEOS = [
-        "videos/here's a break midst all the angst shorts.mp4",
+         "videos/Ladies and gentlemen, I finally put in effort shorts.mp4",
+  "videos/here's a break midst all the angst shorts.mp4",
+  "videos/Bungo Stray Dogs cosplays are  shorts.mp4",
+  "videos/DO NOT click on the related video unless you wanna be traumatized shorts.mp4",
+  "videos/it's not me if I don't experiment shorts.mp4",
+  "videos/SkkSoukoku cosplay compilation viralvideo.mp4",
+  "videos/It's june you guys know what that means shorts.mp4",
+  "videos/Fyolai will live on shorts.mp4",
+  "videos/BACK WITH THIS shorts.mp4",
+  "videos/I've had this idea for so long shorts.mp4",
+  "videos/2nd video in the series shorts.mp4",
+  "videos/DAZAI IS SO LUCKY OML shorts.mp4",
+  "videos/I hate this one shorts.mp4",
+  "videos/HERE'S YOUR DAILY DOSE OF SOUKOKU shorts.mp4",
+  "videos/It's june...you guys know what that means shorts.mp4",
+  "videos/Did anyone say Stormbringer angst shorts.mp4",
+  "videos/Finally a complete Dazai edit shorts.mp4",
+  "videos/Collaboration with dazaiiseverything shorts.mp4",
+  "videos/If you know , you know shorts.mp4",
+  "videos/love this one , actually shorts.mp4",
+  "videos/FANART ANALYSIS shorts.mp4",
+  "videos/THEY'RE KIDS TOO shorts.mp4",
+  "videos/kunizai is next shorts.mp4"
     ];
 
     let videoList = [];
@@ -1525,18 +1547,23 @@ book.userData.title = bookData.title; // ← ajouter cette ligne
                 });
         }
 
-        function prevVideo() {
-            if (historyIndex > 0) {
-                historyIndex--;
-                const fullPath = history[historyIndex];
-                video.src = fullPath;
-                video.load();
-                if (window._isOn) {
-                    video.play().catch(() => {});
-                }
-                saveTVState();
-            }
-        }
+      function prevVideo() {
+    // Si on est sur la première vidéo, on charge une nouvelle vidéo aléatoire
+    if (historyIndex <= 0) {
+        loadRandomVideo();
+        return;
+    }
+
+    // Sinon, on recule normalement dans l'historique
+    historyIndex--;
+    const fullPath = history[historyIndex];
+    video.src = fullPath;
+    video.load();
+    if (window._isOn) {
+        video.play().catch(() => {});
+    }
+    saveTVState();
+}
 
         loadRandomVideo();
 
